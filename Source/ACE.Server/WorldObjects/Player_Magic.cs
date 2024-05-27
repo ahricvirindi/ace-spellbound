@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing.Drawing2D;
 using System.Linq;
 
 using ACE.Common;
 using ACE.DatLoader;
 using ACE.Entity;
 using ACE.Entity.Enum;
+using ACE.Server.Custom.EventHandlers;
 using ACE.Server.Entity;
 using ACE.Server.Entity.Actions;
 using ACE.Server.Managers;
@@ -560,6 +562,10 @@ namespace ACE.Server.WorldObjects
                     castingPreCheckStatus = CastingPreCheckStatus.CastFailed;
                 }
             }
+
+            // &CUSTOM
+            castingPreCheckStatus = CustomPlayerEventHandler.OnCastFizzleCheck(Session, spell, castingPreCheckStatus);
+
             return castingPreCheckStatus;
         }
 

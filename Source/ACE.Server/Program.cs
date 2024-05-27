@@ -16,6 +16,7 @@ using ACE.Server.Command;
 using ACE.Server.Managers;
 using ACE.Server.Mods;
 using ACE.Server.Network.Managers;
+using ACE.Server.Custom.Config;
 
 namespace ACE.Server
 {
@@ -152,6 +153,9 @@ namespace ACE.Server
 
             log.Info("Initializing ConfigManager...");
             ConfigManager.Initialize();
+
+            // &CUSTOM
+            CustomConfigManager.Initialize();
 
             log.Info("Initializing ModManager...");
             ModManager.Initialize();

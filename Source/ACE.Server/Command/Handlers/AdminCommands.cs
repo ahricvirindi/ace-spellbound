@@ -31,6 +31,7 @@ using ACE.Server.WorldObjects;
 using ACE.Server.WorldObjects.Entity;
 
 using Position = ACE.Entity.Position;
+using ACE.Server.Custom.CommandHandlers;
 
 namespace ACE.Server.Command.Handlers
 {
@@ -4743,5 +4744,20 @@ namespace ACE.Server.Command.Handlers
             }
             LootSwap.UpdateTables(folder);
         }
+
+        #region CUSTOM_REGION
+        // &CUSTOM
+        [CommandHandler("settownstage", AccessLevel.Admin, CommandHandlerFlag.RequiresWorld, "Sets the current Town stage for the current landblock.")]
+        public static void HandleSetTownStage(Session session, params string[] parameters)
+        {
+            CustomAdminCommandHandler.HandleSetTownStage(session, parameters[0] ?? "0");
+        }
+
+        [CommandHandler("who", AccessLevel.Admin, CommandHandlerFlag.RequiresWorld, "Displays who is online.")]
+        public static void HandleWho(Session session, params string[] parameters)
+        {
+            CustomAdminCommandHandler.HandleWho(session);
+        }
+        #endregion
     }
 }

@@ -1,0 +1,10 @@
+{
+    "TownStagesDirectory": "CHANGE_ME",
+    "MySql": {
+        "Host": "CHANGE_ME",
+        "Port": 3306,
+        "Database": "CHANGE_ME",
+        "Username": "CHANGE_ME",
+        "Password": "CHANGE_ME"
+    }
+}

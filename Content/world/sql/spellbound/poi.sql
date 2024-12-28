@@ -1,0 +1,14 @@
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('AB', 7194, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('neftet', 87950, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('graveyard', 87951, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('gearknight', 87952, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('paradoxolthoi', 87949, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('rynthid', 87948, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('candeth', 24875, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('aerlinthe', 7413, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('vrise', 630051, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('bellas', 600240, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('eo', 30965, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('sub', 1595, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('subway', 1595, NOW());
+INSERT IGNORE INTO ace_world_spellbound.points_of_interest (`name`, `weenie_class_id`, `last_modified`) VALUES ('mp', 23032, NOW());

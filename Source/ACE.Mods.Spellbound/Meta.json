@@ -1,0 +1,10 @@
+{
+    "Name": "ACE.Mods.Spellbound",
+    "Author": "Ahric Virindi",
+    "Description": "Spellbound is a mod for ACE that allows for Account level Achievements and seasonal content.",
+    "Version": "1.0",
+    "Enabled": true,
+    "HotReload": true,
+    "RegisterCommands": true,
+    "ACEVersion": "0.0"
+}

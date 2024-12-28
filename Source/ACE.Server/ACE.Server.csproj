@@ -257,6 +257,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Config.js">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="Config.js.docker">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

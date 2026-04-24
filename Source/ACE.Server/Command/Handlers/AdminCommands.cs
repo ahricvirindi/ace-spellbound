@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 using log4net;
@@ -217,6 +218,9 @@ namespace ACE.Server.Command.Handlers
                     if (account.AccessLevel > (int)AccessLevel.Player)
                         message += $"Account '{account.AccountName}' has been granted AccessLevel.{((AccessLevel)account.AccessLevel).ToString()} rights.\n";
                     message += $"Account created on {account.CreateTime.ToLocalTime().ToCommonString()} by IP: {(account.CreateIP != null ? new IPAddress(account.CreateIP).ToString() : "N/A")} \n";
+                    var accountAge = DateTime.UtcNow - account.CreateTime;
+                    if (accountAge.TotalDays < 15)
+                        message += $"Account was created less than 15 days ago.\n";
                     message += $"Account last logged on at {(account.LastLoginTime.HasValue ? account.LastLoginTime.Value.ToLocalTime().ToCommonString() : "N/A")} by IP: {(account.LastLoginIP != null ? new IPAddress(account.LastLoginIP).ToString() : "N/A")}\n";
                     message += $"Account total times logged on {account.TotalTimesLoggedIn}\n";
                     var characters = DatabaseManager.Shard.BaseDatabase.GetCharacters(account.AccountId, true);
@@ -429,7 +433,7 @@ namespace ACE.Server.Command.Handlers
         [CommandHandler("limbo", AccessLevel.Sentinel, CommandHandlerFlag.RequiresWorld, 0)]
         public static void HandleLimbo(Session session, params string[] parameters)
         {
-            // @limbo[on / off] - Puts the targeted player in 'limbo' which means that the player cannot damage anything or be damaged by anything.The player will not recieve direct tells, or channel messages, such as fellowship messages and allegiance chat.  The player will be unable to salvage.This status times out after 15 minutes, use '@limbo on' again on the player to reset the timer. You and the player will be notifed when limbo wears off.If neither on or off are specified, on is assumed.
+            // @limbo[on / off] - Puts the targeted player in 'limbo' which means that the player cannot damage anything or be damaged by anything.The player will not receive direct tells, or channel messages, such as fellowship messages and allegiance chat.  The player will be unable to salvage.This status times out after 15 minutes, use '@limbo on' again on the player to reset the timer. You and the player will be notifed when limbo wears off.If neither on or off are specified, on is assumed.
             // @limbo - Puts the selected target in limbo.
 
             // TODO: output
@@ -2572,7 +2576,7 @@ namespace ACE.Server.Command.Handlers
             {
                 var objectId = new ObjectGuid((uint)session.Player.CurrentAppraisalTarget);
                 var wo = session.Player.CurrentLandblock?.GetObject(objectId);
-                if (wo is Lock @lock)
+                if (wo is ACE.Server.WorldObjects.Lock @lock)
                 {
                     var opening = openIt ? $" Opening {wo.WeenieType}." : "";
                     string lockCode = LockHelper.GetLockCode(wo);
@@ -3606,9 +3610,18 @@ namespace ACE.Server.Command.Handlers
 
                     var quests = creature.QuestManager.GetQuests();
 
+                    var filter = string.Empty;
+                    if (parameters.Length >= 2)
+                    {
+                        filter = parameters[1].ToString();
+
+                        if (!string.IsNullOrWhiteSpace(filter))
+                            quests = quests.Where(q => Regex.IsMatch(q.QuestName, filter.WildCardToRegular(), RegexOptions.IgnoreCase)).ToList();
+                    }
+
                     if (quests.Count == 0)
                     {
-                        session.Player.SendMessage("No quests found.");
+                        session.Player.SendMessage($"No quests found{(!string.IsNullOrWhiteSpace(filter) ? $" with filter {filter}" : "")}.");
                         return;
                     }
 
@@ -3876,9 +3889,18 @@ namespace ACE.Server.Command.Handlers
 
                             var quests = fellowship.QuestManager.GetQuests();
 
+                            var filter = string.Empty;
+                            if (parameters.Length >= 2)
+                            {
+                                filter = parameters[1].ToString();
+
+                                if (!string.IsNullOrWhiteSpace(filter))
+                                    quests = quests.Where(q => Regex.IsMatch(q.QuestName, filter.WildCardToRegular(), RegexOptions.IgnoreCase)).ToList();
+                            }
+
                             if (quests.Count == 0)
                             {
-                                session.Player.SendMessage("No quests found.");
+                                session.Player.SendMessage($"No quests found{(!string.IsNullOrWhiteSpace(filter) ? $" with filter {filter}" : "")}.");
                                 return;
                             }
 

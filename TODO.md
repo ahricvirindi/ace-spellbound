@@ -12,12 +12,13 @@ Living punch list for `ACE.Mods.Spellbound`. Open items only — once something 
 Blazor "Armory" app — parallel to the old Blizzard WoW Armory. Players log in with game credentials and view characters (stats / skills / gear), achievement badges, and leaderboards. Separate ASP.NET Core service that runs as its own process on the same box as the game server, queries the existing MySQL databases directly. **Does not load into the ACE game server process** (ACE has no HTTP surface and we don't want to add one).
 
 ### Architecture
-- New project `Source/ACE.Mods.Spellbound.Web/` (Blazor Blazor Web App with server interactivity). Sibling to the mod project; not loaded into the game server.
+- New project `Source/ACE.Mods.Spellbound.Web/` (Blazor Web App with Interactive Server render mode — components run on the server, SignalR pushes UI diffs to the browser). Sibling to the mod project; not loaded into the game server.
 - Project-references `ACE.Database` + `ACE.Common` so we reuse the `Account` entity and `BCryptProvider.Verify` rather than forking auth code. Also references the mod project for the EF model + entities.
 - Cookie-based auth against `ace_auth.Account.PasswordHash`. No account creation in the web app — accounts are created in-game. Reject login for banned accounts (use whatever AccessLevel / AccountStatus the game already enforces at login).
 - Privacy: **all-or-nothing**. Any authenticated, non-banned account sees everything the site exposes. No per-character or per-account public/private toggles.
 - DB scopes: read-only against `ace_auth` and `ace_shard`; read/write against `ace_custom_spellbound` (web sessions, audit log, leaderboard counters, snapshots).
 - Hosting: same box as the game server.
+- Visual design: AC-client-native aesthetic — reuse icons, UI chrome, and palette extracted from `DATS/client_portal.dat` rather than a generic web component library. Tailwind CSS for layout/utilities; data grids only (likely MudBlazor or Radzen) where hand-rolling a sortable/paged table isn't worth it. See Phase 0.
 
 ### Snapshot strategy
 Most read paths are served from snapshot tables in `ace_custom_spellbound` rather than live game state. Snapshot writers live in the **mod** (Harmony hooks + timers); the web app is read-only against snapshots.
@@ -28,6 +29,17 @@ Most read paths are served from snapshot tables in `ace_custom_spellbound` rathe
 | Character profile (stats + skills) | On logout + every 30 minutes while online |
 | Character equipment | On logout + every 30 minutes while online |
 | Leaderboards | Live (event-driven counter UPSERT — see Phase 3) |
+
+### Phase 0 — Asset extraction from dat files
+Pull visual assets out of the local AC dat files so the site looks like the AC client. Dats are already in the repo at `DATS/client_portal.dat`. `ACE.DatLoader.FileTypes.Texture.ExportTexture()` already handles DXT decompression + palette lookup + PNG encoding, so this is a thin extraction tool, not net-new image code. Can run in parallel with Phase 1; only blocks final visual polish.
+
+Legal posture: same gray-space the rest of the emulator already operates in (we're using assets from dats the user supplied to a server they run). Keep extracted assets bundled with the web app; don't redistribute the raw dats.
+
+- [ ] New project `Source/ACE.Mods.Spellbound.DatExtractor/` (console app, references `ACE.DatLoader`). One-shot tool — not part of the normal build, rerun on dat updates.
+- [ ] Initialize `DatManager` against `DATS/`, iterate the texture range (`0x06000000–0x07FFFFFF`), call `ExportTexture()` per entry.
+- [ ] Use `SkillTable` (0x0E000004) and `SpellTable` to map icon IDs to human-readable names — output `out/skills/heavy_weapons.png`, `out/spells/strength_self_vi.png`, not raw hex IDs.
+- [ ] Categorize output directories: `out/skills/`, `out/spells/`, `out/items/`, `out/attributes/`, `out/ui-chrome/`, `out/uncategorized/`. UI chrome + uncategorized need a manual visual review pass.
+- [ ] Curated subset (likely a few hundred files) committed into `Source/ACE.Mods.Spellbound.Web/wwwroot/img/ac/`. Web app references those as static files; no dat dependency at runtime.
 
 ### Phase 1 — MVP (auth + profile + badges + /who)
 - [ ] Scaffold `Source/ACE.Mods.Spellbound.Web/`; cookie auth + login page that verifies against `ace_auth.Account` via BCrypt; banned-account rejection.

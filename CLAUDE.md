@@ -7,7 +7,7 @@ Instructions for Claude when working in this repository. Read this first; it est
 `ACE-Spellbound` is a fork of the [ACEmulator/ACE](https://github.com/ACEmulator/ACE) Asheron's Call server emulator. The fork tracks upstream and adds a custom mod, **`ACE.Mods.Spellbound`**, that delivers two features:
 
 1. **Account-level achievements** — bonuses (stats, XP, damage modifiers, etc.) earned by characters that apply to *every* character on that account, including future characters.
-2. **Seasonal content with narrative zone stages** — characters get wiped between seasons (accounts and achievements persist). Admin commands swap zones in/out by importing per-stage SQL bundles.  For example a town can progress (or regress) through narrative beats.
+2. **Seasonal content with narrative zone stages** — characters get wiped between seasons (accounts and achievements persist). Admin commands swap zones in/out by importing per-stage SQL bundles. Zones are any named landblock (towns, dungeons, wilderness — anywhere narrative beats live) and can progress or regress through stages.
 
 ## The Cardinal Rule: Stay out of the core projects
 
@@ -35,37 +35,42 @@ Source/
     Base/
       SpellboundPatchBase.cs   ← all patches inherit this; provides DB access
     CommandHandlers/
-      Admin/                   ← AccessLevel.Admin slash-commands
-      Player/                  ← AccessLevel.Player slash-commands
+      AdminCommands/           ← AccessLevel.Admin slash-commands
+      PlayerCommands/          ← AccessLevel.Player slash-commands
     Config/Settings.cs         ← typed settings (loaded from Settings.json)
     Data/
       SpellboundContext.cs     ← EF Core DbContext for our private MySQL DB
-    EventHandlers/             ← three peer subfolders, one per kind of subscriber
+    EventHandlers/             ← four peer subfolders, one per kind of subscriber
       AchievementRules/        ← Mostly ONE file per SpellboundEventTrigger:
                                  <Trigger>Handler.cs — Harmony publisher + the single
                                  [SpellboundEvent] subscriber that runs the standard
                                  three-step dispatch (RuleEvaluator → AchievementService /
                                  WorldStateService / CustomAchievementRegistry).
-                                 Lifecycle Harmony patches that don't go through EventBus
-                                 (e.g. NewCharacterApplyHandler — re-applies granted
-                                 achievements on character create) live here too.
+                                 Achievement-domain lifecycle Harmony patches that don't
+                                 go through EventBus also live here (e.g.
+                                 PlayerOnCharacterCreatedHandler, PlayerOnEnterWorldHandler).
       GameplayRules/           ← independent [SpellboundEvent] subscribers that mutate
                                  gameplay (e.g., cancel a cast). One file per rule.
       CustomAchievementRules/  ← [CustomAchievement]-tagged code-driven achievement
                                  evaluators — for eligibility logic that doesn't fit
                                  the data-driven (FilterType, Target) shape
+      SeasonLifecycleRules/    ← lifecycle Harmony patches that aren't achievement-domain
+                                 — currently CharacterCreateReservedNameHandler, which
+                                 enforces ReservedNames at character creation across
+                                 season-wipe boundaries. No EventBus, no [SpellboundEvent].
     Helpers/                   ← cross-cutting utilities, namespace globally imported
       SpellboundLog.cs         ← Info/Warn/Error wrappers that own the [Spellbound] log prefix
       PlayerMessaging.cs       ← Tell / TellAccount / BroadcastWorld extensions on Player
     Services/
       AchievementService.cs    ← atomic award SQL, apply-to-characters walk, base-stat mutation
-      WorldStateService.cs     ← town stage mutation, transactional SQL import, landblock reload
+      WorldStateService.cs     ← zone stage mutation, transactional SQL import, landblock reload
       RuleMatcher.cs           ← payload-aware (FilterType, Target) match
       RuleEvaluator.cs         ← load-and-match loop for Achievement / WorldStateRule rows
       SpellboundDispatcher.cs  ← the standard three-step pipeline every per-trigger handler runs
       CustomAchievementRegistry.cs ← boot-time discovery + dispatch for [CustomAchievement]
     Model/                     ← EF entities (Achievement, AccountAchievement,
-                                  AwardedCharacterAchievement, Town, WorldStateRule, ...)
+                                  AwardedCharacterAchievement, Zone, WorldStateRule,
+                                  ReservedName, ...)
       Events/                  ← EventBus + payload records + attribute(s).
                                   SpellboundEventArgs exposes Subject (the player this is
                                   about) and AccountId — payloads override Subject so handlers
@@ -76,7 +81,7 @@ Source/
 MODS/
   ACE.Mods.Spellbound/  ← build output drops here; ACE loads mods from this dir
 Content/
-  town-stages/<townName>/<stageNumber>.sql   ← stage SQL bundles
+  zone-stages/<zoneName>/<stageNumber>.sql   ← stage SQL bundles
 Database/
   ...                   ← upstream DB schema files (don't touch)
   Spellbound/           ← OUR SQL artifacts
@@ -84,7 +89,7 @@ Database/
                                               "blank DB + every Updates/*.sql in order."
     Updates/<YYYY-MM-DD-NNN>-<slug>.sql      ← dated, hand-authored migrations.
                                               Apply manually after entity / schema changes.
-    Seeds/{achievements,towns}.sql           ← canonical INSERT IGNORE seed rows; stable Ids
+    Seeds/{achievements,zones}.sql           ← canonical INSERT IGNORE seed rows; stable Ids
                                               referenced by code-driven evaluators.
     Operations/season-wipe.sql               ← manual season-wipe procedure;
                                               run with the server stopped.
@@ -134,7 +139,7 @@ Rule of thumb: if the caller is a slash command, sync `CreateDbContext()` is fin
 Four databases are involved:
 
 1. **Core ACE databases** (`ace_world`, `ace_shard`, `ace_auth`) — managed by upstream. Don't touch their schema for our features.
-2. **Our private database** (`ace_custom_spellbound` per `Settings.json`) — owned by `SpellboundContext` and the entities under `Model/`. This is where achievements, per-character idempotency rows, account verifications, and town state live.
+2. **Our private database** (`ace_custom_spellbound` per `Settings.json`) — owned by `SpellboundContext` and the entities under `Model/`. This is where achievements, per-character idempotency rows, account verifications, zone state, and reserved names live.
 
 No EF Core migrations. Schema lives in two places under `Database/Spellbound/`:
 
@@ -143,7 +148,7 @@ No EF Core migrations. Schema lives in two places under `Database/Spellbound/`:
 
 **Maintenance rule:** when you change an entity or `OnModelCreating`, you write BOTH (a) a new `Updates/*.sql` so existing deployments can upgrade, AND (b) the matching delta into `Baseline/CreateSpellboundDb.sql` in the same change so a fresh-box bootstrap stays equivalent to "blank + all updates." Don't rely on `EnsureCreated`.
 
-`Database/Spellbound/Seeds/` carries canonical INSERT-IGNORE rows for achievements + towns. Seed Ids are stable; code-driven `[CustomAchievement]` evaluators reference them by Id (e.g. `FirstCriticalKill` → 9001). `Database/Spellbound/Operations/season-wipe.sql` is the manual between-season procedure.
+`Database/Spellbound/Seeds/` carries canonical INSERT-IGNORE rows for achievements + zones. Seed Ids are stable; code-driven `[CustomAchievement]` evaluators reference them by Id (e.g. `FirstCriticalKill` → 9001). `Database/Spellbound/Operations/season-wipe.sql` is the manual between-season procedure.
 
 Mutable entities carry a `[ConcurrencyCheck] int Version` column for optimistic concurrency. Manually `entity.Version++` inside the same transaction that mutates the row, so racing `SaveChanges` calls trigger `DbUpdateConcurrencyException` instead of silent last-write-wins. Pomelo/MySQL doesn't support SQL-Server-style `rowversion`, hence the manual int.
 
@@ -162,14 +167,14 @@ The achievement system grants permanent account-level bonuses, so anti-cheat and
 
 If you're about to write achievement-award code, re-read this section first.
 
-## Seasons & town stages
+## Seasons & zone stages
 
-- Characters wipe between seasons; accounts, `AccountAchievement` rows, `Achievement` catalog, and `WorldStateRule` defs persist. `AwardedCharacterAchievements` rows are wiped (they reference now-deleted character GUIDs). Any new account-tied data we add must survive a character wipe — design schema with that in mind.
-- The wipe procedure is `Database/Spellbound/Operations/season-wipe.sql` — manual SQL run with the server stopped. It truncates every `character` / `biota` / `*_properties_*` shard table and resets `Towns.Stage = 0`. Smoke-check `SELECT`s at the bottom of the script confirm survivors are intact.
-- Town staging works by importing a SQL file (`Content/town-stages/<town>/<stage>.sql`) that rewrites `landblock_instance` rows for that town's landblock, then reloading the landblock. The flow lives in `Services/WorldStateService.cs`; `CommandHandlers/Admin/SetTownStageCommandHandler.cs` (admin, force-set) and the per-trigger event handlers (event-driven, advance-only) both funnel into it. The SQL import runs in an explicit world-DB transaction (`TryImportStageSql`) so a typo mid-batch rolls back instead of leaving `landblock_instance` half-rewritten.
-- Automatic triggering is wired via `WorldStateRule` rows: `(EventTrigger, FilterType, Target) → (TownId, TargetStage)`. Same `FilterType` / `Target` shape as `Achievement`, so `Services/RuleMatcher.cs` evaluates both.
+- Characters wipe between seasons; accounts, `AccountAchievement` rows, `Achievement` catalog, `WorldStateRule` defs, `Zone` rows, and `ReservedName` rows persist. `AwardedCharacterAchievements` rows are wiped (they reference now-deleted character GUIDs); `Zone.Stage` is reset to 0. Any new account-tied data we add must survive a character wipe — design schema with that in mind.
+- The wipe procedure is `Database/Spellbound/Operations/season-wipe.sql` — manual SQL run with the server stopped. Step 1 snapshots every active character's `(name, account_Id)` into `ReservedNames` (INSERT IGNORE — first reservation wins, prior-season rows untouched); step 2 truncates every `character` / `biota` / `*_properties_*` shard table; step 3 resets `Zones.Stage = 0`. Smoke-check `SELECT`s at the bottom of the script confirm survivors are intact. The `ReservedNames` snapshot is enforced at character creation by `EventHandlers/SeasonLifecycleRules/CharacterCreateReservedNameHandler.cs`; reservations are permanent (no expiry), and the `is_Deleted = 0` filter on the snapshot intentionally excludes characters the player already deleted.
+- Zone staging works by importing a SQL file (`Content/zone-stages/<zone>/<stage>.sql`) that rewrites `landblock_instance` rows for that zone's landblock, then reloading the landblock. The flow lives in `Services/WorldStateService.cs`; `CommandHandlers/AdminCommands/ZoneCommandHandler.cs` (admin, `/zone stage <n>` force-set) and the per-trigger event handlers (event-driven, advance-only) both funnel into it. The SQL import runs in an explicit world-DB transaction (`TryImportStageSql`) so a typo mid-batch rolls back instead of leaving `landblock_instance` half-rewritten. `Zone` rows whose `Stage` stays at 0 with no `Content/zone-stages/<Name>/` directory are pure aliases — used for /who labels and `LandblockNaming.Resolve` only.
+- Automatic triggering is wired via `WorldStateRule` rows: `(EventTrigger, FilterType, Target) → (ZoneId, TargetStage)`. Same `FilterType` / `Target` shape as `Achievement`, so `Services/RuleMatcher.cs` evaluates both.
 - Players in the affected landblock get a system-chat broadcast right before the destroy/reload — see `WorldStateService.DispatchLandblockReload`. Same method has an inline audit comment of exactly what `DestroyAllNonPlayerObjects` removes (corpses + dropped items unload but biota survives; pets / projectiles / non-shard NPCs destroyed; static spawns reload from the just-imported SQL).
-- Stage SQL files are author-controlled — but `WorldStateService` builds the file path from the town's `Name` field and the stage number, so be cautious if any of those become user-influenced. Today both come from the DB, so it's fine; if that changes, validate the path stays under `TownStagesDirectory`.
+- Stage SQL files are author-controlled — but `WorldStateService` builds the file path from the zone's `Name` field and the stage number, so be cautious if any of those become user-influenced. Today both come from the DB, so it's fine; if that changes, validate the path stays under `ZoneStagesDirectory`. Renaming a zone via `/zone name <name...>` while it has stage SQL files at the old name will silently break stage resolution; the command warns when this risk applies.
 
 ## Thread safety
 
@@ -178,7 +183,7 @@ ACE is heavily multithreaded. Player actions, network events, landblock ticks, a
 - **Never share a `SpellboundContext` across threads or calls.** Always create one per operation via `CreateDbContext()` (or have `RunDbWork` do it for you). EF Core contexts are explicitly not thread-safe.
 - **No mutable static state in patch classes** unless guarded by a lock or an `Interlocked`/`ConcurrentDictionary`-style primitive. The patch classes themselves are instantiated once but their static methods are called from many threads.
 - **Don't block tick threads on the database.** From a Harmony postfix on a hot path (kill, damage, level, regen tick), use `RunDbWork(...)` rather than `CreateDbContext()`. Slash commands are fine sync — the player is already waiting.
-- **Read-modify-write goes in a transaction.** When you must read a row, mutate it, and save it back, wrap the work in `db.Database.BeginTransaction(IsolationLevel.Serializable)` AND bump the entity's `Version++` so the `[ConcurrencyCheck]` triggers `DbUpdateConcurrencyException` on a race. See `WorldStateService.ApplyTownStage` for the canonical pattern.
+- **Read-modify-write goes in a transaction.** When you must read a row, mutate it, and save it back, wrap the work in `db.Database.BeginTransaction(IsolationLevel.Serializable)` AND bump the entity's `Version++` so the `[ConcurrencyCheck]` triggers `DbUpdateConcurrencyException` on a race. See `WorldStateService.ApplyZoneStage` for the canonical pattern.
 - **Awards and progress increments must be atomic at the DB layer.** Prefer a single `UPDATE ... WHERE AwardedAt IS NULL` (or `SELECT ... FOR UPDATE` inside a transaction) over read-modify-write in C#. The unique index on `AccountAchievement(AccountId, AchievementId)` is your safety net — catch `DbUpdateException` with the `IsUniqueViolation` shape and treat it as "already awarded, no-op." `AchievementService.TryAwardAtomic` is the only sanctioned write path; everything that grants an achievement should funnel through it.
 - **Queue work onto the player's `ActionChain` when touching `WorldObject` state.** That's how `WorldStateService.DispatchLandblockReload` destroys + reloads the landblock; follow the same pattern for anything that mutates game state from a Harmony postfix that runs off the landblock thread.
 - **Logging is fine from any thread.** `ModManager.Log` is safe.
@@ -202,7 +207,7 @@ Default sequence:
 2. Identify the Harmony hook point (`[HarmonyPrefix]`, `[HarmonyPostfix]`, transpiler) by reading the relevant core class.
 3. **Pick the trigger.** If it maps to an existing `SpellboundEventTrigger`, edit the matching `EventHandlers/AchievementRules/<Trigger>Handler.cs` (don't create a parallel handler). If it's a new trigger, add the enum value, add the canonical payload to `EventBus._payloadFor`, and create the new `<Trigger>Handler.cs` under `EventHandlers/AchievementRules/` with both publisher and subscriber.
 4. Write the work in the right home:
-   - Cross-cutting helpers (atomic award, town stage advance, filter matching) → `Services/`
+   - Cross-cutting helpers (atomic award, zone stage advance, filter matching) → `Services/`
    - Gameplay-mutating rule for an existing trigger → new file under `EventHandlers/GameplayRules/`
    - Code-driven achievement → new file under `EventHandlers/CustomAchievementRules/` with `[CustomAchievement]`
 5. If DB schema changes: update the entity, update `OnModelCreating`, **write BOTH a new `Database/Spellbound/Updates/<YYYY-MM-DD-NNN>-<slug>.sql` for live deployments AND mirror the change into `Database/Spellbound/Baseline/CreateSpellboundDb.sql` in the same commit.** Call out the migration to the user.
@@ -229,7 +234,7 @@ Per-trigger handlers (canonical templates):
 Services:
 
 - `Services/AchievementService.cs` — atomic award, apply-to-characters, base-stat mutation (online + offline biota paths)
-- `Services/WorldStateService.cs` — town stage mutation, transactional SQL import, landblock reload + audit comments
+- `Services/WorldStateService.cs` — zone stage mutation, transactional SQL import, landblock reload + audit comments
 - `Services/RuleEvaluator.cs` — load-and-match loop for Achievement / WorldStateRule rows
 - `Services/RuleMatcher.cs` — payload-aware (FilterType, Target) match; add a switch arm + helper for new payloads
 - `Services/SpellboundDispatcher.cs` — standard three-step pipeline shared across all trigger handlers
@@ -245,9 +250,9 @@ Helpers + commands:
 
 - `Helpers/SpellboundLog.cs` — the only sanctioned log entry point
 - `Helpers/PlayerMessaging.cs` — `Tell` / `TellAccount` / `BroadcastWorld` extensions on `Player`
-- `CommandHandlers/Admin/SetTownStageCommandHandler.cs` — slash command that calls into a service
-- `CommandHandlers/Admin/GrantAchievementCommandHandler.cs` — admin force-grant with idempotent re-walk semantics
-- `CommandHandlers/Player/AchievementsCommandHandler.cs` — player-facing read with offline-thread safety pattern
+- `CommandHandlers/AdminCommands/ZoneCommandHandler.cs` — `/zone` subcommand dispatch (info / name / stage) calling into `WorldStateService`
+- `CommandHandlers/AdminCommands/GrantAchievementCommandHandler.cs` — admin force-grant with idempotent re-walk semantics
+- `CommandHandlers/PlayerCommands/AchievementsCommandHandler.cs` — player-facing read with offline-thread safety pattern
 
 ## TODO list
 

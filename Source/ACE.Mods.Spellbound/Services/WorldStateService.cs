@@ -11,46 +11,46 @@ namespace ACE.Mods.Spellbound.Services
 {
     public static class WorldStateService
     {
-        public static void SetTownStage(int townId, int targetStage)
-            => ApplyTownStage(townId, targetStage, advanceOnly: false);
+        public static void SetZoneStage(int zoneId, int targetStage)
+            => ApplyZoneStage(zoneId, targetStage, advanceOnly: false);
 
-        public static void AdvanceTownStage(int townId, int minStage)
-            => ApplyTownStage(townId, minStage, advanceOnly: true);
+        public static void AdvanceZoneStage(int zoneId, int minStage)
+            => ApplyZoneStage(zoneId, minStage, advanceOnly: true);
 
-        private static void ApplyTownStage(int townId, int targetStage, bool advanceOnly)
+        private static void ApplyZoneStage(int zoneId, int targetStage, bool advanceOnly)
         {
             if (targetStage < 0 || targetStage > 10)
             {
-                SpellboundLog.Warn($"WorldState: refusing stage {targetStage} for town {townId} (outside 0..10).");
+                SpellboundLog.Warn($"WorldState: refusing stage {targetStage} for zone {zoneId} (outside 0..10).");
                 return;
             }
 
             if (!SpellboundPatchBase.IsDbReady)
             {
-                SpellboundLog.Warn($"WorldState: ApplyTownStage(town={townId}) dropped — Spellbound mod not yet started.");
+                SpellboundLog.Warn($"WorldState: ApplyZoneStage(zone={zoneId}) dropped — Spellbound mod not yet started.");
                 return;
             }
 
             // Step 1: short-lived lookup context. We re-fetch a tracked copy inside the
             // transaction below; this read is just for path resolution.
-            Town? town;
+            Zone? zone;
             using (var lookupDb = SpellboundPatchBase.CreateDbContext())
             {
-                town = lookupDb.Towns.AsNoTracking().FirstOrDefault(x => x.Id == townId);
+                zone = lookupDb.Zones.AsNoTracking().FirstOrDefault(x => x.Id == zoneId);
             }
-            if (town == null)
+            if (zone == null)
             {
-                SpellboundLog.Warn($"WorldState: no Town record for id {townId}.");
+                SpellboundLog.Warn($"WorldState: no Zone record for id {zoneId}.");
                 return;
             }
 
-            if (advanceOnly && town.Stage >= targetStage)
+            if (advanceOnly && zone.Stage >= targetStage)
             {
-                SpellboundLog.Info($"WorldState: town '{town.Name}' already at stage {town.Stage} (target {targetStage}); advance is a no-op.");
+                SpellboundLog.Info($"WorldState: zone '{zone.Name}' already at stage {zone.Stage} (target {targetStage}); advance is a no-op.");
                 return;
             }
 
-            if (!TryResolveStageFile(town, targetStage, out var stageFile))
+            if (!TryResolveStageFile(zone, targetStage, out var stageFile))
                 return;
 
             try
@@ -58,43 +58,43 @@ namespace ACE.Mods.Spellbound.Services
                 using var db = SpellboundPatchBase.CreateDbContext();
                 using var tx = db.Database.BeginTransaction(IsolationLevel.Serializable);
 
-                var trackedTown = db.Towns.FirstOrDefault(x => x.Id == townId);
-                if (trackedTown == null)
+                var trackedZone = db.Zones.FirstOrDefault(x => x.Id == zoneId);
+                if (trackedZone == null)
                 {
-                    SpellboundLog.Info($"WorldState: town {townId} disappeared between lookup and update.");
+                    SpellboundLog.Info($"WorldState: zone {zoneId} disappeared between lookup and update.");
                     return;
                 }
 
-                if (advanceOnly && trackedTown.Stage >= targetStage)
+                if (advanceOnly && trackedZone.Stage >= targetStage)
                 {
-                    SpellboundLog.Info($"WorldState: town '{trackedTown.Name}' raced ahead to stage {trackedTown.Stage}; advance no-op.");
+                    SpellboundLog.Info($"WorldState: zone '{trackedZone.Name}' raced ahead to stage {trackedZone.Stage}; advance no-op.");
                     return;
                 }
 
                 if (!TryImportStageSql(stageFile))
                 {
-                    SpellboundLog.Error($"WorldState: stage SQL failed for town '{trackedTown.Name}' → {targetStage}; Town.Stage NOT updated.");
+                    SpellboundLog.Error($"WorldState: stage SQL failed for zone '{trackedZone.Name}' → {targetStage}; Zone.Stage NOT updated.");
                     return;
                 }
 
-                trackedTown.Stage = targetStage;
-                trackedTown.UpdatedAt = DateTime.UtcNow;
-                trackedTown.Version++;
+                trackedZone.Stage = targetStage;
+                trackedZone.UpdatedAt = DateTime.UtcNow;
+                trackedZone.Version++;
                 db.SaveChanges();
                 tx.Commit();
             }
             catch (DbUpdateConcurrencyException)
             {
-                SpellboundLog.Warn($"WorldState: concurrent stage update on town {townId}; this advance lost the race.");
+                SpellboundLog.Warn($"WorldState: concurrent stage update on zone {zoneId}; this advance lost the race.");
                 return;
             }
             catch (Exception ex)
             {
-                SpellboundLog.Error($"WorldState: ApplyTownStage(town={townId}, stage={targetStage}) failed: {ex}");
+                SpellboundLog.Error($"WorldState: ApplyZoneStage(zone={zoneId}, stage={targetStage}) failed: {ex}");
                 return;
             }
 
-            DispatchLandblockReload(town, targetStage);
+            DispatchLandblockReload(zone, targetStage);
         }
 
         private static bool TryImportStageSql(string sqlFile)
@@ -129,15 +129,15 @@ namespace ACE.Mods.Spellbound.Services
             }
         }
 
-        private static bool TryResolveStageFile(Town town, int stage, out string stageFile)
+        private static bool TryResolveStageFile(Zone zone, int stage, out string stageFile)
         {
             stageFile = string.Empty;
-            var root = SpellboundPatchBase.Settings?.TownStagesDirectory ?? string.Empty;
-            var contentFolder = Path.Combine(root, town.Name);
+            var root = SpellboundPatchBase.Settings?.ZoneStagesDirectory ?? string.Empty;
+            var contentFolder = Path.Combine(root, zone.Name);
             var di = new DirectoryInfo(contentFolder);
             if (!di.Exists)
             {
-                SpellboundLog.Warn($"WorldState: no town staging directory for '{town.Name}' (expected {contentFolder}).");
+                SpellboundLog.Warn($"WorldState: no zone staging directory for '{zone.Name}' (expected {contentFolder}).");
                 return false;
             }
 
@@ -160,12 +160,12 @@ namespace ACE.Mods.Spellbound.Services
             return true;
         }
 
-        private static void DispatchLandblockReload(Town town, int newStage)
+        private static void DispatchLandblockReload(Zone zone, int newStage)
         {
-            if (!TryParseLandblockId(town.Landblock, out var landblockId))
+            if (!TryParseLandblockId(zone.Landblock, out var landblockId))
             {
                 SpellboundLog.Error(
-                    $"WorldState: town {town.Id} has unparseable Landblock '{town.Landblock}'. " +
+                    $"WorldState: zone {zone.Id} has unparseable Landblock '{zone.Landblock}'. " +
                     "Stage updated in DB but landblock was not reloaded.");
                 return;
             }
@@ -174,19 +174,19 @@ namespace ACE.Mods.Spellbound.Services
             if (landblock == null)
             {
                 SpellboundLog.Info(
-                    $"WorldState: landblock {town.Landblock} not loaded; nothing to reload. " +
+                    $"WorldState: landblock {zone.Landblock} not loaded; nothing to reload. " +
                     "Players entering it will see the new stage.");
                 return;
             }
 
             var capturedLb = landblock;
-            var townName = town.Name;
+            var zoneName = zone.Name;
             var chain = new ActionChain();
 
             chain.AddAction(capturedLb, () =>
             {
                 var msg = new GameMessageSystemChat(
-                    $"You feel the world shift. {townName} is changing... (stage {newStage})",
+                    $"You feel the world shift. {zoneName} is changing... (stage {newStage})",
                     ChatMessageType.WorldBroadcast);
                 capturedLb.EnqueueBroadcast(excludeList: null, adjacents: false, pos: null, maxRangeSq: null, msg);
             });

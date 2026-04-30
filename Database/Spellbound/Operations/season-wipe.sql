@@ -16,26 +16,41 @@
 --                  house permission row.
 --   - Spellbound:  AwardedCharacterAchievements (per-char idempotency rows
 --                  reference now-deleted character GUIDs and would mis-skip
---                  the apply walk if a future GUID collides). Towns.Stage is
+--                  the apply walk if a future GUID collides). Zones.Stage is
 --                  reset to 0; rows themselves are kept.
 --
 -- WHAT SURVIVES:
 --   - Auth DB:     account rows, passwords, access levels — fully untouched.
 --   - Spellbound:  Achievement catalog, AccountAchievement awards (the whole
 --                  point — bonuses persist across seasons), AccountVerification,
---                  WorldStateRule definitions.
+--                  WorldStateRule definitions, ReservedNames (extended below
+--                  with this season's roster before the shard truncate).
 --
 -- AFTER RUNNING:
 --   - Restart the ACE server.
 --   - Players reconnect to the same accounts, see no characters, create new
 --     ones. PlayerOnCreate (PlayerManager.AddOfflinePlayer postfix) fires for
 --     each new char and re-applies every account achievement to the new biota.
---   - Towns.Stage starts back at 0; if your stage SQL files require a baseline
+--   - Zones.Stage starts back at 0; if your stage SQL files require a baseline
 --     world.landblock_instance state, run that import first.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1. Shard DB — character + biota cascade.
+-- 1. Spellbound DB — snapshot every active character's name into ReservedNames
+-- BEFORE the shard truncate destroys the source rows. INSERT IGNORE makes this
+-- safe to re-run and preserves prior-season reservations: the unique index on
+-- Name guarantees the FIRST account to own a given handle keeps it forever
+-- (per design — see Database/Spellbound/Updates/2026-04-29-003-add-reserved-names.sql).
+-- is_Deleted = 0 filter skips characters that the player already abandoned;
+-- their handles are considered freed.
+-- ----------------------------------------------------------------------------
+INSERT IGNORE INTO `ace_custom_spellbound`.`ReservedNames` (`Name`, `AccountId`, `ReservedAt`)
+SELECT `name`, `account_Id`, UTC_TIMESTAMP(6)
+  FROM `ace_shard`.`character`
+ WHERE `is_Deleted` = 0;
+
+-- ----------------------------------------------------------------------------
+-- 2. Shard DB — character + biota cascade.
 -- Replace `ace_shard` below if your shard DB is named differently.
 -- ----------------------------------------------------------------------------
 USE `ace_shard`;
@@ -84,27 +99,30 @@ TRUNCATE TABLE `house_permission`;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ----------------------------------------------------------------------------
--- 2. Spellbound DB — per-character idempotency cleared, towns reset to 0.
+-- 3. Spellbound DB — per-character idempotency cleared, zone stages reset to 0.
 -- Replace `ace_custom_spellbound` if your Settings.json::MySql.Database differs.
 -- ----------------------------------------------------------------------------
 USE `ace_custom_spellbound`;
 
 TRUNCATE TABLE `AwardedCharacterAchievements`;
 
-UPDATE `Towns`
+UPDATE `Zones`
    SET `Stage`     = 0,
        `UpdatedAt` = UTC_TIMESTAMP(6),
        `Version`   = `Version` + 1;
 
 -- ----------------------------------------------------------------------------
--- 3. Smoke checks. Run these after the wipe to confirm survivors are intact.
+-- 4. Smoke checks. Run these after the wipe to confirm survivors are intact.
 -- Expect: account rows untouched, AccountAchievements row count > 0 if you had
--- granted any, character row count = 0, biota row count = 0.
+-- granted any, character row count = 0, biota row count = 0,
+-- ReservedNames count >= the active character count from before the wipe
+-- (>= because prior-season reservations are also in there).
 -- ----------------------------------------------------------------------------
 SELECT 'auth.account count'         AS metric, COUNT(*) AS value FROM `ace_auth`.`account`
 UNION ALL SELECT 'shard.character count',                     COUNT(*) FROM `ace_shard`.`character`
 UNION ALL SELECT 'shard.biota count',                         COUNT(*) FROM `ace_shard`.`biota`
 UNION ALL SELECT 'spellbound.AccountAchievements count',      COUNT(*) FROM `ace_custom_spellbound`.`AccountAchievements`
 UNION ALL SELECT 'spellbound.AwardedCharacterAchievements count', COUNT(*) FROM `ace_custom_spellbound`.`AwardedCharacterAchievements`
-UNION ALL SELECT 'spellbound.Towns at stage 0',               COUNT(*) FROM `ace_custom_spellbound`.`Towns` WHERE `Stage` = 0
-UNION ALL SELECT 'spellbound.Towns above stage 0',            COUNT(*) FROM `ace_custom_spellbound`.`Towns` WHERE `Stage` > 0;
+UNION ALL SELECT 'spellbound.ReservedNames count',            COUNT(*) FROM `ace_custom_spellbound`.`ReservedNames`
+UNION ALL SELECT 'spellbound.Zones at stage 0',               COUNT(*) FROM `ace_custom_spellbound`.`Zones` WHERE `Stage` = 0
+UNION ALL SELECT 'spellbound.Zones above stage 0',            COUNT(*) FROM `ace_custom_spellbound`.`Zones` WHERE `Stage` > 0;

@@ -7,12 +7,12 @@ namespace ACE.Mods.Spellbound.Helpers
     /// <summary>
     /// Centralizes landblock-id formatting and the resolve-to-human-name lookup.
     ///
-    /// Format: matches the convention SetTownStageCommandHandler / Town.Landblock
+    /// Format: matches the convention ZoneCommandHandler / Zone.Landblock
     /// already use — full position id with the low 16 bits set, hex-formatted
-    /// ("0xAABBFFFF"). Anything that talks to or queries the Town / LandblockAlias
-    /// rows must use Format so the keys line up.
+    /// ("0xAABBFFFF"). Anything that talks to or queries Zone rows must use Format
+    /// so the keys line up.
     ///
-    /// Resolution priority: LandblockAlias.Name -> Town.Name -> formatted hex.
+    /// Resolution: Zone.Name -> formatted hex.
     /// </summary>
     public static class LandblockNaming
     {
@@ -22,24 +22,14 @@ namespace ACE.Mods.Spellbound.Helpers
         {
             var key = Format(raw);
 
-            var aliasName = db.LandblockAliases.AsNoTracking()
-                .Where(a => a.Landblock == key)
-                .Select(a => a.Name)
+            var name = db.Zones.AsNoTracking()
+                .Where(z => z.Landblock == key)
+                .Select(z => z.Name)
                 .FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(aliasName))
-                return aliasName;
-
-            var townName = db.Towns.AsNoTracking()
-                .Where(t => t.Landblock == key)
-                .Select(t => t.Name)
-                .FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(townName))
-                return townName;
-
-            return key;
+            return string.IsNullOrWhiteSpace(name) ? key : name;
         }
 
-        // Batch form for /who: one round trip per source table instead of N.
+        // Batch form for /who: one round trip instead of N.
         public static Dictionary<uint, string> ResolveBatch(IEnumerable<uint> raws, SpellboundContext db)
         {
             var distinctRaws = raws.Distinct().ToList();
@@ -49,25 +39,15 @@ namespace ACE.Mods.Spellbound.Helpers
             var keyByRaw = distinctRaws.ToDictionary(r => r, r => Format(r));
             var keys = keyByRaw.Values.Distinct().ToList();
 
-            var aliases = db.LandblockAliases.AsNoTracking()
-                .Where(a => keys.Contains(a.Landblock))
-                .Select(a => new { a.Landblock, a.Name })
+            var nameByKey = db.Zones.AsNoTracking()
+                .Where(z => keys.Contains(z.Landblock))
+                .Select(z => new { z.Landblock, z.Name })
                 .ToDictionary(x => x.Landblock, x => x.Name);
-
-            var townKeys = keys.Where(k => !aliases.ContainsKey(k)).ToList();
-            var towns = townKeys.Count == 0
-                ? new Dictionary<string, string>()
-                : db.Towns.AsNoTracking()
-                    .Where(t => townKeys.Contains(t.Landblock))
-                    .Select(t => new { t.Landblock, t.Name })
-                    .ToDictionary(x => x.Landblock, x => x.Name);
 
             foreach (var (raw, key) in keyByRaw)
             {
-                if (aliases.TryGetValue(key, out var aliasName) && !string.IsNullOrWhiteSpace(aliasName))
-                    result[raw] = aliasName;
-                else if (towns.TryGetValue(key, out var townName) && !string.IsNullOrWhiteSpace(townName))
-                    result[raw] = townName;
+                if (nameByKey.TryGetValue(key, out var name) && !string.IsNullOrWhiteSpace(name))
+                    result[raw] = name;
                 else
                     result[raw] = key;
             }

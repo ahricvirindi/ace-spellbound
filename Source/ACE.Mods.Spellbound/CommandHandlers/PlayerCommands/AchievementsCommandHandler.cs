@@ -2,7 +2,7 @@ using ACE.Mods.Spellbound.Base;
 
 using Microsoft.EntityFrameworkCore;
 
-namespace ACE.Mods.Spellbound.CommandHandlers.Player
+namespace ACE.Mods.Spellbound.CommandHandlers.PlayerCommands
 {
     public class AchievementsCommandHandler : SpellboundPatchBase
     {

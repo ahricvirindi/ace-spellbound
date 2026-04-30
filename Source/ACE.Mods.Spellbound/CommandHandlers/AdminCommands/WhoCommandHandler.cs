@@ -1,7 +1,7 @@
 using ACE.Mods.Spellbound.Base;
 using ACE.Mods.Spellbound.Helpers;
 
-namespace ACE.Mods.Spellbound.CommandHandlers.Admin
+namespace ACE.Mods.Spellbound.CommandHandlers.AdminCommands
 {
     public class WhoCommandHandler : SpellboundPatchBase
     {

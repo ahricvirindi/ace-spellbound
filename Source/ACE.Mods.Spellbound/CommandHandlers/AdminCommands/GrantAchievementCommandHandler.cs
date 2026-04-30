@@ -3,7 +3,7 @@ using ACE.Mods.Spellbound.Services;
 
 using Microsoft.EntityFrameworkCore;
 
-namespace ACE.Mods.Spellbound.CommandHandlers.Admin
+namespace ACE.Mods.Spellbound.CommandHandlers.AdminCommands
 {
     public class GrantAchievementCommandHandler : SpellboundPatchBase
     {

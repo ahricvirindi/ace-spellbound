@@ -14,10 +14,10 @@ namespace ACE.Mods.Spellbound.Model
         // Free-form filter value; meaning is determined by FilterType. Null/empty = wildcard.
         public string? Target { get; set; }
 
-        public int TownId { get; set; }
+        public int ZoneId { get; set; }
 
-        [ForeignKey(nameof(TownId))]
-        public Town? Town { get; set; }
+        [ForeignKey(nameof(ZoneId))]
+        public Zone? Zone { get; set; }
 
         public int TargetStage { get; set; }
 

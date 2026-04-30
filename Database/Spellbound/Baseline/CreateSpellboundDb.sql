@@ -14,8 +14,8 @@
 -- shape into this file in the same PR so a fresh-box bootstrap stays
 -- equivalent to "blank DB + every Updates/*.sql in chronological order."
 --
--- Baseline as of: 2026-04-29 (covers Updates through
---                              2026-04-29-002-add-landblock-alias.sql).
+-- Baseline as of: 2026-04-30 (covers Updates through
+--                              2026-04-30-003-zone-name-unique.sql).
 -- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -41,23 +41,40 @@ CREATE TABLE IF NOT EXISTS `Achievement` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 -- ----------------------------------------------------------------------------
--- Towns: one row per landblock that participates in the seasonal town-stage
--- system. Stage is mutated by WorldStateService (event-driven advance,
--- admin-driven force-set); Version is the [ConcurrencyCheck] token so racing
--- updates trigger DbUpdateConcurrencyException instead of last-write-wins.
+-- Zones: one row per named landblock. Pure aliases stay at Stage = 0; staged
+-- zones (towns, dungeons, wilderness — anywhere narrative beats live) carry a
+-- non-zero Stage that WorldStateService advances by importing
+-- Content/zone-stages/<Name>/<stage>.sql and reloading the landblock. Replaces
+-- the older Towns + LandblockAliases pair. SetByAccountId is audit-only —
+-- which admin last set the name via /zone name. The optional Tele* columns
+-- mirror the upstream Position constructor (cell, posX/Y/Z, rotX/Y/Z/W); all
+-- 8 are nullable together — TeleCell IS NULL means "no tele point set" and
+-- /zone tele will refuse to teleport.
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Towns` (
-    `Id`        INT          NOT NULL AUTO_INCREMENT,
-    `Name`      VARCHAR(200) NOT NULL,
-    `Landblock` VARCHAR(50)  NOT NULL,
-    `Stage`     INT          NOT NULL DEFAULT 0,
-    `UpdatedAt` DATETIME(6)  NOT NULL,
-    `Version`   INT          NOT NULL DEFAULT 0,
+CREATE TABLE IF NOT EXISTS `Zones` (
+    `Id`             INT          NOT NULL AUTO_INCREMENT,
+    `Name`           VARCHAR(200) NOT NULL,
+    `Landblock`      VARCHAR(50)  NOT NULL,
+    `Stage`          INT          NOT NULL DEFAULT 0,
+    `UpdatedAt`      DATETIME(6)  NOT NULL,
+    `SetByAccountId` INT UNSIGNED NULL,
+    `TeleCell`       INT UNSIGNED NULL,
+    `TelePosX`       FLOAT        NULL,
+    `TelePosY`       FLOAT        NULL,
+    `TelePosZ`       FLOAT        NULL,
+    `TeleRotX`       FLOAT        NULL,
+    `TeleRotY`       FLOAT        NULL,
+    `TeleRotZ`       FLOAT        NULL,
+    `TeleRotW`       FLOAT        NULL,
+    `Version`        INT          NOT NULL DEFAULT 0,
     PRIMARY KEY (`Id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
-CREATE UNIQUE INDEX `IX_Towns_Landblock`
-    ON `Towns` (`Landblock`);
+CREATE UNIQUE INDEX `IX_Zones_Landblock`
+    ON `Zones` (`Landblock`);
+
+CREATE UNIQUE INDEX `IX_Zones_Name`
+    ON `Zones` (`Name`);
 
 -- ----------------------------------------------------------------------------
 -- AccountAchievements: per-account achievement progress + grant timestamp.
@@ -122,7 +139,7 @@ CREATE UNIQUE INDEX `IX_AccountVerifications_AccountId`
     ON `AccountVerifications` (`AccountId`);
 
 -- ----------------------------------------------------------------------------
--- WorldStateRules: declarative trigger -> town-stage rules consumed by
+-- WorldStateRules: declarative trigger -> zone-stage rules consumed by
 -- WorldStateService. Filter shape (FilterType, Target) mirrors Achievement
 -- so RuleMatcher evaluates both kinds. EventTrigger index is hot-path —
 -- looked up on every published event.
@@ -133,34 +150,37 @@ CREATE TABLE IF NOT EXISTS `WorldStateRules` (
     `EventTrigger` INT          NOT NULL,
     `FilterType`   INT          NOT NULL DEFAULT 1,
     `Target`       VARCHAR(200) NULL,
-    `TownId`       INT          NOT NULL,
+    `ZoneId`       INT          NOT NULL,
     `TargetStage`  INT          NOT NULL,
     `Version`      INT          NOT NULL DEFAULT 0,
     PRIMARY KEY (`Id`),
-    CONSTRAINT `FK_WorldStateRules_Towns_TownId`
-        FOREIGN KEY (`TownId`) REFERENCES `Towns` (`Id`) ON DELETE RESTRICT
+    CONSTRAINT `FK_WorldStateRules_Zones_ZoneId`
+        FOREIGN KEY (`ZoneId`) REFERENCES `Zones` (`Id`) ON DELETE RESTRICT
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
 CREATE INDEX `IX_WorldStateRules_EventTrigger`
     ON `WorldStateRules` (`EventTrigger`);
 
 -- ----------------------------------------------------------------------------
--- LandblockAliases: human-readable name for an arbitrary landblock. Read by
--- Helpers/LandblockNaming.Resolve to label /who output and any future
--- location-aware UI; written by the /aliashere admin command (which uses the
--- caller's current landblock — no hex argument). Resolution priority is
--- LandblockAlias -> Town.Name -> formatted hex.
+-- ReservedNames: permanent (name -> account) reservations carried across
+-- season wipes so handles can't be sniped after season-wipe.sql truncates
+-- shard.character. Populated by season-wipe.sql pre-truncate; read by the
+-- Harmony prefix on CharacterHandler.CharacterCreateEx (see
+-- EventHandlers/AchievementRules/CharacterCreateReservedNameHandler.cs).
+-- Case-insensitive uniqueness via utf8mb4_general_ci on the Name column.
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `LandblockAliases` (
-    `Id`              INT          NOT NULL AUTO_INCREMENT,
-    `Landblock`       VARCHAR(50)  NOT NULL,
-    `Name`            VARCHAR(200) NOT NULL,
-    `SetByAccountId`  INT UNSIGNED NULL,
-    `UpdatedAt`       DATETIME(6)  NOT NULL,
+CREATE TABLE IF NOT EXISTS `ReservedNames` (
+    `Id`         INT          NOT NULL AUTO_INCREMENT,
+    `Name`       VARCHAR(255) NOT NULL,
+    `AccountId`  INT UNSIGNED NOT NULL,
+    `ReservedAt` DATETIME(6)  NOT NULL,
     PRIMARY KEY (`Id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
-CREATE UNIQUE INDEX `IX_LandblockAliases_Landblock`
-    ON `LandblockAliases` (`Landblock`);
+CREATE UNIQUE INDEX `IX_ReservedNames_Name`
+    ON `ReservedNames` (`Name`);
+
+CREATE INDEX `IX_ReservedNames_AccountId`
+    ON `ReservedNames` (`AccountId`);
 
 SET FOREIGN_KEY_CHECKS = 1;

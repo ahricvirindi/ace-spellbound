@@ -18,8 +18,8 @@ namespace ACE.Mods.Spellbound.Services
             foreach (var rule in RuleEvaluator.MatchWorldStateRules(db, trigger, payload))
             {
                 SpellboundLog.Info(
-                    $"WorldState rule '{rule.Name}' matched on {trigger}; advancing town {rule.TownId} → stage {rule.TargetStage}.");
-                WorldStateService.AdvanceTownStage(rule.TownId, rule.TargetStage);
+                    $"WorldState rule '{rule.Name}' matched on {trigger}; advancing zone {rule.ZoneId} → stage {rule.TargetStage}.");
+                WorldStateService.AdvanceZoneStage(rule.ZoneId, rule.TargetStage);
             }
 
             CustomAchievementRegistry.EvaluateForTrigger(trigger, payload, accountId, db);

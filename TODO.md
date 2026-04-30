@@ -7,6 +7,9 @@ Living punch list for `ACE.Mods.Spellbound`. Open items only — once something 
 - [ ] **Wire the remaining `SpellboundEventTrigger` values.** Wired today: `Player_OnKill`, `Player_OnLevel`, `Player_OnDeath`, `Player_PreCast`. Roughly 22 enum values still unwired (regen events, portal entry/exit, loot, quests, item use, magic resist, evades, PK kill/death, account create/login, etc.). Bulk expansion deferred — pick this up one trigger at a time when an achievement requires it. Pattern: add payload under `Model/Events/Payloads/`, register in `EventBus._payloadFor`, drop a `<Trigger>Handler.cs` under `EventHandlers/AchievementRules/`.
 - [ ] **Multiplier-style award types.** `ExperienceBonus`, `LuminanceBonus`, `FlatDamage`, `PercentDamage`, `FlatCritDamage`, `PercentCritDamage`, `ArmorLevel`, `AllResists` — `AchievementService.ApplyToCharacter` currently logs and skips them. Each needs a dedicated runtime calc-path Harmony hook (XP grant path, damage calc, etc.) since they're per-event multipliers, not one-shot stat mutations. Decide which calc paths to patch before picking this up.
 
+## Connection management
+- [ ] Allow non-admins to only have 2 accounts logged in at the same time (from IP).  With an exception of if they are in the 'marketplace' landblock.  So it's a max of 2 accounts per IP that can be in non-marketplace landblocks.  Add an ip whitelist for this also so certain ips (that will be admins) can have any number of active accounts logged in.
+
 ## Website / Armory (low priority)
 
 Blazor "Armory" app — parallel to the old Blizzard WoW Armory. Players log in with game credentials and view characters (stats / skills / gear), achievement badges, and leaderboards. Separate ASP.NET Core service that runs as its own process on the same box as the game server, queries the existing MySQL databases directly. **Does not load into the ACE game server process** (ACE has no HTTP surface and we don't want to add one).
@@ -78,6 +81,6 @@ Today only per-achievement `Progress` is tracked. No per-creature kill map, no P
 - [ ] Achievement / `WorldStateRule` / Zone CRUD UI.
 - [ ] Extended account properties (Discord handle, etc.).
 
-
 ## Server-Specific Decal Plugin (low priority)
 - [ ] Ideate / define feature set that would make sense inside a custom decal plugin (like lum per hour)
+- [ ] 

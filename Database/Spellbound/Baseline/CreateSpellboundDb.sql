@@ -27,7 +27,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- describe what the player gets and how many sub-events are needed to flip
 -- AwardedAt.
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Achievement` (
+CREATE TABLE IF NOT EXISTS `Achievements` (
     `Id`               INT            NOT NULL AUTO_INCREMENT,
     `Name`             VARCHAR(200)   NOT NULL,
     `EventTrigger`     INT            NOT NULL,
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS `AccountAchievements` (
     `Version`       INT         NOT NULL DEFAULT 0,
     PRIMARY KEY (`Id`),
     CONSTRAINT `FK_AccountAchievements_Achievement_AchievementId`
-        FOREIGN KEY (`AchievementId`) REFERENCES `Achievement` (`Id`)
+        FOREIGN KEY (`AchievementId`) REFERENCES `Achievements` (`Id`)
         ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
@@ -104,13 +104,13 @@ CREATE INDEX `IX_AccountAchievements_AccountId`
     ON `AccountAchievements` (`AccountId`);
 
 -- ----------------------------------------------------------------------------
--- AwardedCharacterAchievements: per-character idempotency guard for the
+-- CharacterAchievements: per-character idempotency guard for the
 -- bonus-application walk. The unique (CharacterId, AchievementId) index lets
 -- the on-grant walk and the on-character-create walk both attempt the insert
 -- and treat a duplicate-key as "already applied; no-op" — see
 -- AchievementService.ApplyToCharacter.
 -- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `AwardedCharacterAchievements` (
+CREATE TABLE IF NOT EXISTS `CharacterAchievements` (
     `Id`            INT          NOT NULL AUTO_INCREMENT,
     `CharacterId`   INT UNSIGNED NOT NULL,
     `AchievementId` INT          NOT NULL,
@@ -118,11 +118,11 @@ CREATE TABLE IF NOT EXISTS `AwardedCharacterAchievements` (
     PRIMARY KEY (`Id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
 
-CREATE UNIQUE INDEX `IX_AwardedCharacterAchievements_CharacterId_AchievementId`
-    ON `AwardedCharacterAchievements` (`CharacterId`, `AchievementId`);
+CREATE UNIQUE INDEX `IX_CharacterAchievements_CharacterId_AchievementId`
+    ON `CharacterAchievements` (`CharacterId`, `AchievementId`);
 
-CREATE INDEX `IX_AwardedCharacterAchievements_CharacterId`
-    ON `AwardedCharacterAchievements` (`CharacterId`);
+CREATE INDEX `IX_CharacterAchievements_CharacterId`
+    ON `CharacterAchievements` (`CharacterId`);
 
 -- ----------------------------------------------------------------------------
 -- AccountVerifications: tracks accounts that have completed external

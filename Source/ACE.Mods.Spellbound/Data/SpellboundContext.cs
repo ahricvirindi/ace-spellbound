@@ -12,8 +12,8 @@ namespace ACE.Mods.Spellbound.Data
         }
 
         public DbSet<AccountAchievement> AccountAchievements { get; set; }
-        public DbSet<AwardedCharacterAchievement> AwardedCharacterAchievements { get; set; }
-        public DbSet<Achievement> Achievement { get; set; }
+        public DbSet<CharacterAchievement> CharacterAchievements { get; set; }
+        public DbSet<Achievement> Achievements { get; set; }
         public DbSet<Zone> Zones { get; set; }
         public DbSet<AccountVerification> AccountVerifications { get; set; }
         public DbSet<WorldStateRule> WorldStateRules { get; set; }
@@ -39,7 +39,7 @@ namespace ACE.Mods.Spellbound.Data
                 b.HasKey(x => x.Id);
             });
 
-            modelBuilder.Entity<AwardedCharacterAchievement>(b =>
+            modelBuilder.Entity<CharacterAchievement>(b =>
             {
                 b.HasKey(x => x.Id);
                 // makes sure we don't double-award

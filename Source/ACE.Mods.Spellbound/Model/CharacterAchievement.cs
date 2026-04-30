@@ -2,7 +2,7 @@ using ACE.Mods.Spellbound.Model.Base;
 
 namespace ACE.Mods.Spellbound.Model
 {
-    public class AwardedCharacterAchievement : BaseKeyedModel
+    public class CharacterAchievement : BaseKeyedModel
     {
         public uint CharacterId { get; set; }
         public int AchievementId { get; set; }

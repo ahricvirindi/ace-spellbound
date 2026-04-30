@@ -22,7 +22,7 @@ namespace ACE.Mods.Spellbound.Services
 
         public static bool AwardById(SpellboundContext db, uint accountIdU, int achievementId)
         {
-            var ach = db.Achievement.AsNoTracking().FirstOrDefault(a => a.Id == achievementId);
+            var ach = db.Achievements.AsNoTracking().FirstOrDefault(a => a.Id == achievementId);
             if (ach == null)
             {
                 SpellboundLog.Warn($"AwardById: no Achievement with id {achievementId}.");

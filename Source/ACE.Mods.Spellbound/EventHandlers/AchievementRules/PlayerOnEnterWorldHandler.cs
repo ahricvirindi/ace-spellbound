@@ -48,14 +48,14 @@ namespace ACE.Mods.Spellbound.EventHandlers.AchievementRules
             RunDbWork(db =>
             {
                 // Granted achievements for this account whose apply row is missing for this character.
-                // LEFT JOIN over AwardedCharacterAchievements with a NULL filter is the cheapest way
+                // LEFT JOIN over CharacterAchievements with a NULL filter is the cheapest way
                 // to express "set difference" in EF Core / MySQL — single round trip, single index hit
                 // on (CharacterId, AchievementId).
                 var missing = (from aa in db.AccountAchievements.AsNoTracking()
-                               join ach in db.Achievement.AsNoTracking() on aa.AchievementId equals ach.Id
+                               join ach in db.Achievements.AsNoTracking() on aa.AchievementId equals ach.Id
                                where aa.AccountId == (int)accountId
                                      && aa.AwardedAt != null
-                                     && !db.AwardedCharacterAchievements.Any(ac =>
+                                     && !db.CharacterAchievements.Any(ac =>
                                             ac.CharacterId == characterGuid
                                             && ac.AchievementId == aa.AchievementId)
                                select ach).ToList();

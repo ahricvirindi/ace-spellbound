@@ -14,7 +14,7 @@ namespace ACE.Mods.Spellbound.Services
             SpellboundEventTrigger trigger,
             SpellboundEventArgs payload)
         {
-            var candidates = db.Achievement
+            var candidates = db.Achievements
                 .AsNoTracking()
                 .Where(a => a.EventTrigger == trigger)
                 .ToList();

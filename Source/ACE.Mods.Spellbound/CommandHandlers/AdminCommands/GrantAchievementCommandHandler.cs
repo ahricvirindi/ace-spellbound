@@ -36,7 +36,7 @@ namespace ACE.Mods.Spellbound.CommandHandlers.AdminCommands
             }
 
             using var db = CreateDbContext();
-            var ach = db.Achievement.AsNoTracking().FirstOrDefault(a => a.Id == achievementId);
+            var ach = db.Achievements.AsNoTracking().FirstOrDefault(a => a.Id == achievementId);
             if (ach == null)
             {
                 session?.Player.Tell($"No achievement found with id {achievementId}.");

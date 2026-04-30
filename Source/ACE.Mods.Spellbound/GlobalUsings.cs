@@ -27,6 +27,7 @@ global using ACE.Shared.Helpers;
 global using ACE.Shared.Mods;
 global using HarmonyLib;
 global using System.Diagnostics;
+global using System.Runtime.CompilerServices;
 global using System.Numerics;
 global using System.Reflection;
 global using System.Text;
@@ -38,6 +39,7 @@ global using Biota = ACE.Entity.Models.Biota;
 global using Weenie = ACE.Entity.Models.Weenie;
 global using Spell = ACE.Server.Entity.Spell;
 global using Microsoft.Extensions.DependencyInjection;
+global using ACE.Mods.Spellbound.Helpers;
 
 #if REALM
 global using ACE.Server.Realms;

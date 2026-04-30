@@ -1,5 +1,7 @@
 using ACE.Mods.Spellbound.Base;
-using ACE.Mods.Spellbound.EventHandlers;
+using ACE.Mods.Spellbound.Config;
+using ACE.Mods.Spellbound.Model.Events;
+using ACE.Mods.Spellbound.Services;
 
 namespace ACE.Mods.Spellbound
 {
@@ -8,13 +10,24 @@ namespace ACE.Mods.Spellbound
         private const string SETTINGS_NAME = "Settings.json";
 
         public Mod() : base() {
-            Harmony.DEBUG = true;
+            // Harmony.DEBUG must be set BEFORE Setup() applies patches — by the time
+            // SpellboundPatchBase.OnStartSuccess populates Settings, patch IL has
+            // already been written. We therefore read Settings.json directly here
+            // rather than going through SettingsContainer. Default off; flip to true
+            // in Settings.json to diagnose a specific patch failure.
+            Harmony.DEBUG = TryReadHarmonyDebugFlag();
 
             List<IPatch> patches = LoadPatches();
 
-            Setup("ACE.Mods.Spellbound", patches.ToArray());
+            // Discover [SpellboundEvent] subscribers and [CustomAchievement]
+            // evaluators in the mod assembly. Done before Setup() so any
+            // registration error fails the mod boot rather than going live with
+            // broken event wiring.
+            var asm = Assembly.GetExecutingAssembly();
+            EventBus.DiscoverAndRegister(asm);
+            CustomAchievementRegistry.DiscoverAndRegister(asm);
 
-            //TestManualPatchApplication();
+            Setup("ACE.Mods.Spellbound", patches.ToArray());
         }
 
         private List<IPatch> LoadPatches()
@@ -35,34 +48,35 @@ namespace ACE.Mods.Spellbound
                 }
                 catch (Exception ex)
                 {
-                    ModManager.Log($"Failed to create instance of {patchType.Name}: {ex.Message}", ModManager.LogLevel.Error);
+                    SpellboundLog.Error($"Failed to create instance of {patchType.Name}: {ex.Message}");
                 }
             }
 
             return patches;
         }
 
-        private void TestManualPatchApplication()
+        // Read the HarmonyDebug flag straight from Settings.json. Failures fall back to
+        // false — verbose Harmony logging is opt-in, never default-on.
+        private static bool TryReadHarmonyDebugFlag()
         {
-            var harmony = new Harmony("ACE.Mods.Spellbound.ManualTest");
-            var sourceMethod = AccessTools.Method(typeof(Player), nameof(Player.GetCastingPreCheckStatus), new[] { typeof(Server.Entity.Spell), typeof(uint), typeof(bool) });
-
-            if (sourceMethod != null)
+            try
             {
-                var postfix = typeof(PlayerMagicEventHandler).GetMethod(nameof(PlayerMagicEventHandler.OnSpellFizzleCheck), System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public);
+                var asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                if (string.IsNullOrEmpty(asmDir)) return false;
 
-                if (postfix != null)
+                var path = Path.Combine(asmDir, SETTINGS_NAME);
+                if (!File.Exists(path)) return false;
+
+                using var stream = File.OpenRead(path);
+                var settings = JsonSerializer.Deserialize<Settings>(stream, new JsonSerializerOptions
                 {
-                    harmony.Patch(sourceMethod, postfix: new HarmonyMethod(postfix));
-                }
-                else
-                {
-                    ModManager.Log("Postfix method not found.", ModManager.LogLevel.Error);
-                }
+                    PropertyNameCaseInsensitive = true,
+                });
+                return settings?.HarmonyDebug ?? false;
             }
-            else
+            catch
             {
-                ModManager.Log("Source method not found.", ModManager.LogLevel.Error);
+                return false;
             }
         }
     }

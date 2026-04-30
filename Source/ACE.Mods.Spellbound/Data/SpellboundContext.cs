@@ -1,10 +1,6 @@
 using ACE.Mods.Spellbound.Model;
+
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ACE.Mods.Spellbound.Data
 {
@@ -16,9 +12,11 @@ namespace ACE.Mods.Spellbound.Data
         }
 
         public DbSet<AccountAchievement> AccountAchievements { get; set; }
+        public DbSet<AwardedCharacterAchievement> AwardedCharacterAchievements { get; set; }
         public DbSet<Achievement> Achievement { get; set; }
         public DbSet<Town> Towns { get; set; }
         public DbSet<AccountVerification> AccountVerifications { get; set; }
+        public DbSet<WorldStateRule> WorldStateRules { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -27,10 +25,49 @@ namespace ACE.Mods.Spellbound.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<AccountAchievement>().HasKey(x => x.Id);
-            modelBuilder.Entity<Achievement>().HasKey(x => x.Id);
-            modelBuilder.Entity<Town>().HasKey(x => x.Id);
-            modelBuilder.Entity<AccountVerification>().HasKey(x => x.Id);
+            modelBuilder.Entity<AccountAchievement>(b =>
+            {
+                b.HasKey(x => x.Id);
+                // makes sure we dont double-award
+                b.HasIndex(x => new { x.AccountId, x.AchievementId }).IsUnique();
+                b.HasIndex(x => x.AccountId);
+            });
+
+            modelBuilder.Entity<Achievement>(b =>
+            {
+                b.HasKey(x => x.Id);
+            });
+
+            modelBuilder.Entity<AwardedCharacterAchievement>(b =>
+            {
+                b.HasKey(x => x.Id);
+                // makes sure we don't double-award
+                b.HasIndex(x => new { x.CharacterId, x.AchievementId }).IsUnique();
+                b.HasIndex(x => x.CharacterId);
+            });
+
+            modelBuilder.Entity<Town>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasIndex(x => x.Landblock).IsUnique();
+            });
+
+            modelBuilder.Entity<AccountVerification>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasIndex(x => x.AccountId).IsUnique();
+            });
+
+            modelBuilder.Entity<WorldStateRule>(b =>
+            {
+                b.HasKey(x => x.Id);
+                // we're reading this....on every event listener so definitely needs this index
+                b.HasIndex(x => x.EventTrigger);
+                b.HasOne(x => x.Town)
+                    .WithMany()
+                    .HasForeignKey(x => x.TownId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
             base.OnModelCreating(modelBuilder);
         }

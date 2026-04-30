@@ -1,0 +1,65 @@
+# .claudeignore — patterns Claude should avoid pulling into context.
+#
+# Note on enforcement: Claude Code does not have a first-class `.claudeignore`
+# the way some other tools do. The harness already respects `.gitignore` for
+# Glob/Grep, so build artifacts, .vs/, [Bb]in/, [Oo]bj/, etc. are filtered
+# automatically. This file is a deliberate, human-readable list of paths I
+# (Claude) should treat as "don't touch unless the user asks specifically" —
+# either because they're enormous, generated, upstream-owned, or otherwise
+# noise for the kind of work we're doing on ACE.Mods.Spellbound.
+#
+# When in doubt: read CLAUDE.md and TODO.md first; assume everything below is
+# off-limits unless the task names it.
+
+# === Game data (binary AC dat files; never source-readable) ===
+DATS/
+**/*.dat
+
+# === Upstream SQL dumps — huge and not where our work lives ===
+Database/Base/
+Database/Updates/
+Database/Archive/
+Database/Optional/
+Database/tools/
+# Keep our own DB schema (when we add it) findable; don't blanket-ignore Database/.
+
+# === Pre-existing town stage SQL bundles ===
+# These are content authored by the world team. Read only when the task is
+# specifically about a stage's SQL.
+Content/town-stages/**/*.sql
+
+# === Upstream core projects ===
+# Per CLAUDE.md, our work goes in Source/ACE.Mods.Spellbound. Treat the rest as
+# read-only reference — only open a specific file when you know the symbol
+# you're looking for (e.g. for finding a Harmony patch target).
+Source/ACE.DatLoader.Tests/
+Source/ACE.Database.Tests/
+Source/ACE.Server.Tests/
+# NOTE: Source/ACE.Server/ is intentionally NOT ignored — we routinely need to
+# read it to find Harmony patch targets. But avoid wholesale enumeration; use
+# Grep with a specific symbol name.
+
+# === Build / tooling artifacts not already in .gitignore ===
+MODS/                      # mod build output drop directory
+AppVeyor/
+.github/
+**/obj/
+**/bin/
+**/.vs/
+
+# === Heavy upstream docs that aren't relevant to our mod work ===
+changelog.md               # 250KB+ upstream changelog
+LICENSE
+CODE_OF_CONDUCT.md
+"Git 101.md"
+README.md                  # upstream readme; our README is CLAUDE.md
+
+# === Local secrets ===
+Source/ACE.Mods.Spellbound/Settings.json   # contains DB creds; do not paste contents into chat
+docker.env
+
+# === Misc ===
+*.zip
+*.dll
+*.pdb
+*.exe

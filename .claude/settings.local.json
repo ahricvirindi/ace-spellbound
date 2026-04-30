@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(/c/Users/Eric/.dotnet/tools/ilspycmd /tmp/ace-shared-decomp/ACE.Shared.dll -t BasicMod)",
+      "Bash(/c/Users/Eric/.dotnet/tools/ilspycmd /tmp/ace-shared-decomp/ACE.Shared.dll --list T)",
+      "Bash(/c/Users/Eric/.dotnet/tools/ilspycmd /tmp/ace-shared-decomp/ACE.Shared.dll -l \"type\")",
+      "Read(//tmp/**)",
+      "Bash(/c/Users/Eric/.dotnet/tools/ilspycmd ACE.Shared.dll -p -o decomp)",
+      "Bash(xargs grep *)",
+      "Bash(git checkout *)",
+      "Bash(grep -v \"//\")"
+    ]
+  }
+}

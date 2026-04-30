@@ -10,9 +10,9 @@ Living punch list for `ACE.Mods.Spellbound`. Open items only — once something 
 ## Connection management
 - [ ] Allow non-admins to only have 2 accounts logged in at the same time (from IP).  With an exception of if they are in the 'marketplace' landblock.  So it's a max of 2 accounts per IP that can be in non-marketplace landblocks.  Add an ip whitelist for this also so certain ips (that will be admins) can have any number of active accounts logged in.
 
-## Website / Armory (low priority)
+## Website / Asheron's Eye (low priority)
 
-Blazor "Armory" app — parallel to the old Blizzard WoW Armory. Players log in with game credentials and view characters (stats / skills / gear), achievement badges, and leaderboards. Separate ASP.NET Core service that runs as its own process on the same box as the game server, queries the existing MySQL databases directly. **Does not load into the ACE game server process** (ACE has no HTTP surface and we don't want to add one).
+Blazor app branded **Asheron's Eye** (the user-facing moniker — page titles, headers, marketing copy; the project itself stays `ACE.Mods.Spellbound.Web`). Functionally parallel to the old Blizzard WoW Armory: players log in with game credentials and view characters (stats / skills / gear), achievement badges, and leaderboards. Separate ASP.NET Core service that runs as its own process on the same box as the game server, queries the existing MySQL databases directly. **Does not load into the ACE game server process** (ACE has no HTTP surface and we don't want to add one).
 
 ### Architecture
 - New project `Source/ACE.Mods.Spellbound.Web/` (Blazor Web App with Interactive Server render mode — components run on the server, SignalR pushes UI diffs to the browser). Sibling to the mod project; not loaded into the game server.

@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: landblock alias table
--- Apply against the `ace_custom_spellbound` database (or whatever
+-- Apply against the `ace_mod_spellbound` database (or whatever
 -- Settings.json::MySql.Database is set to).
 --
 -- Why: /who and any future location-aware UI need a human-readable name for

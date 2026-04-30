@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: WorldStateRules table
--- Apply against `ace_custom_spellbound`.
+-- Apply against `ace_mod_spellbound`.
 --
 -- WorldStateRules drive `WorldStateService` — a row says "when this trigger
 -- fires and the event matches my filters, advance Town X to stage N." Used

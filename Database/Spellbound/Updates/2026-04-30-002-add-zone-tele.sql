@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: add optional tele point to Zones.
--- Apply against the `ace_custom_spellbound` database (or whatever
+-- Apply against the `ace_mod_spellbound` database (or whatever
 -- Settings.json::MySql.Database is set to).
 --
 -- Why: the upstream `points_of_interest` table is keyed on portal weenies, so

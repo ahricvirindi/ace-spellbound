@@ -1,24 +1,47 @@
 -- ============================================================================
--- Spellbound DB baseline schema.
--- Run once against an empty `ace_mod_spellbound` (or whatever
--- Settings.json::MySql.Database is set to) to bootstrap a fresh dev box or
--- a new deployment.
+-- Spellbound DB hard reset.
+-- Single-file drop + create + seed for the Spellbound private database
+-- (whatever Settings.json::MySql.Database is set to, default
+-- `ace_mod_spellbound`).
 --
--- This file is the single source of truth for the schema as of the most
--- recent dated script under Database/Spellbound/Updates/. After running this,
--- you do NOT need to apply any Updates/*.sql whose date is on or before the
--- header date below — they're already folded in. Future deltas land as new
--- Updates/*.sql scripts.
+-- DESTRUCTIVE. Drops every Spellbound-owned table and rebuilds it from
+-- scratch, then re-applies canonical seeds. Use during dev to nuke a
+-- corrupted local schema or to reset between feature branches that have
+-- diverged on schema. NEVER run against production unless that's exactly
+-- what you mean.
 --
--- Maintenance rule: when an Updates/*.sql lands, mirror the resulting schema
--- shape into this file in the same PR so a fresh-box bootstrap stays
--- equivalent to "blank DB + every Updates/*.sql in chronological order."
+-- Usage (server stopped recommended; mod's Lazy<T> context factory reads
+-- connection settings on first use, so a running server with cached
+-- connections will be confused by the table churn):
+--   mysql -u <user> -p <db_name> < reset-spellbound-db.sql
 --
--- Baseline as of: 2026-04-30 (covers Updates through
---                              2026-04-30-003-zone-name-unique.sql).
+-- Maintenance rule: this file is a concatenation of
+--   Baseline/CreateSpellboundDb.sql + Seeds/achievements.sql + Seeds/zones.sql
+-- preceded by DROP statements. When any of those source files change, mirror
+-- the change here in the same commit. The DROP TABLE list must mention every
+-- table that Baseline creates.
+--
+-- Reset as of: 2026-04-30 (covers Updates through
+--                          2026-04-30-003-zone-name-unique.sql).
 -- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------------------------------------------------------
+-- DROP all Spellbound tables. Order doesn't matter with FK checks off.
+-- Keep this list in sync with the CREATE TABLE statements below.
+-- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `AccountAchievements`;
+DROP TABLE IF EXISTS `AwardedCharacterAchievements`;
+DROP TABLE IF EXISTS `AccountVerifications`;
+DROP TABLE IF EXISTS `WorldStateRules`;
+DROP TABLE IF EXISTS `ReservedNames`;
+DROP TABLE IF EXISTS `Achievement`;
+DROP TABLE IF EXISTS `Zones`;
+
+-- ============================================================================
+-- BEGIN mirror of Baseline/CreateSpellboundDb.sql
+-- ============================================================================
 
 -- ----------------------------------------------------------------------------
 -- Achievement: catalog row referenced by AccountAchievements + the on-grant
@@ -184,3 +207,65 @@ CREATE INDEX `IX_ReservedNames_AccountId`
     ON `ReservedNames` (`AccountId`);
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================================
+-- END mirror of Baseline/CreateSpellboundDb.sql
+-- ============================================================================
+
+
+-- ============================================================================
+-- BEGIN mirror of Seeds/achievements.sql
+-- Stable Ids matter: code-driven achievement evaluators (see
+-- EventHandlers/CustomAchievementRules/) reference rows by Id. Renumbering
+-- breaks those references silently.
+-- ============================================================================
+
+-- 9001 — First Critical Kill (code-driven via [CustomAchievement(9001, ...)]).
+INSERT IGNORE INTO `Achievement`
+    (`Id`, `Name`, `EventTrigger`, `AwardDescription`, `FilterType`, `Target`, `AwardType`, `AwardValue`, `AmountRequired`)
+VALUES
+    (9001, 'First Critical Kill', 117, 'Reward for landing your first critical-hit killing blow.', 1, NULL, 1, 10, 1);
+
+-- 9002 — First Blood (data-driven wildcard kill).
+INSERT IGNORE INTO `Achievement`
+    (`Id`, `Name`, `EventTrigger`, `AwardDescription`, `FilterType`, `Target`, `AwardType`, `AwardValue`, `AmountRequired`)
+VALUES
+    (9002, 'First Blood', 117, 'Awarded the first time you defeat any creature.', 1, NULL, 7, 1, 1);
+
+-- 9003 — Hunter (kill 100 of any creature).
+INSERT IGNORE INTO `Achievement`
+    (`Id`, `Name`, `EventTrigger`, `AwardDescription`, `FilterType`, `Target`, `AwardType`, `AwardValue`, `AmountRequired`)
+VALUES
+    (9003, 'Hunter', 117, 'Defeat 100 creatures.', 1, NULL, 8, 1, 100);
+
+-- 9004 — Apprentice (reach level 5).
+INSERT IGNORE INTO `Achievement`
+    (`Id`, `Name`, `EventTrigger`, `AwardDescription`, `FilterType`, `Target`, `AwardType`, `AwardValue`, `AmountRequired`)
+VALUES
+    (9004, 'Apprentice', 106, 'Reach level 5.', 5, '5', 2, 5, 1);
+
+-- 9005 — Inevitable (any non-PvP death).
+INSERT IGNORE INTO `Achievement`
+    (`Id`, `Name`, `EventTrigger`, `AwardDescription`, `FilterType`, `Target`, `AwardType`, `AwardValue`, `AmountRequired`)
+VALUES
+    (9005, 'Inevitable', 102, 'You died. It happens.', 1, NULL, 3, 5, 1);
+
+-- ============================================================================
+-- END mirror of Seeds/achievements.sql
+-- ============================================================================
+
+
+-- ============================================================================
+-- BEGIN mirror of Seeds/zones.sql
+-- ============================================================================
+
+-- 1 — Holtburg (placeholder landblock — replace with the campaign's actual
+-- staging landblock before going live).
+INSERT IGNORE INTO `Zones`
+    (`Id`, `Name`, `Landblock`, `Stage`, `UpdatedAt`, `Version`)
+VALUES
+    (1, 'Holtburg', '00000000', 0, UTC_TIMESTAMP(6), 0);
+
+-- ============================================================================
+-- END mirror of Seeds/zones.sql
+-- ============================================================================

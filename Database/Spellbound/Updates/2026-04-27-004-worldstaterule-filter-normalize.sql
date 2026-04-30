@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: normalize WorldStateRules filter shape
--- Apply against `ace_custom_spellbound`.
+-- Apply against `ace_mod_spellbound`.
 --
 -- WorldStateRules previously carried two typed filter columns
 -- (`WeenieClassId`, `CreatureType`). After this migration they share the same

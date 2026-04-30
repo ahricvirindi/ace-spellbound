@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Spellbound DB migration: merge Towns + LandblockAliases into a unified Zones
 -- table. Rename WorldStateRules.TownId -> ZoneId. Apply against the
--- `ace_custom_spellbound` database (or whatever Settings.json::MySql.Database
+-- `ace_mod_spellbound` database (or whatever Settings.json::MySql.Database
 -- is set to).
 --
 -- Why: Towns and LandblockAliases were both (Landblock, Name) maps; only Towns

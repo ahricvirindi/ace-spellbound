@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: concurrency tokens + unique indexes
--- Apply against the `ace_custom_spellbound` database (or whatever
+-- Apply against the `ace_mod_spellbound` database (or whatever
 -- Settings.json::MySql.Database is set to).
 --
 -- Idempotent where MySQL syntax allows; otherwise commented inline.

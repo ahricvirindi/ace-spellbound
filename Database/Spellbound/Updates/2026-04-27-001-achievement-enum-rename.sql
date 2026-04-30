@@ -1,7 +1,7 @@
 -- ============================================================================
 -- Spellbound DB migration: rename Achievement.AchievemntTrigger -> AchievementTrigger
 -- and renumber AchievementTriggers / AchievementAwardTypes enum values.
--- Apply against `ace_custom_spellbound`.
+-- Apply against `ace_mod_spellbound`.
 --
 -- Background: the prior enum definitions had nearly every value set to `2`,
 -- and the entity column was misspelled (`AchievemntTrigger`). The award path

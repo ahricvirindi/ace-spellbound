@@ -93,6 +93,11 @@ Database/
                                               referenced by code-driven evaluators.
     Operations/season-wipe.sql               ← manual season-wipe procedure;
                                               run with the server stopped.
+    Operations/reset-spellbound-db.sql       ← DESTRUCTIVE drop-all + create-all
+                                              + reseed of every Spellbound
+                                              table. Dev convenience. Mirror
+                                              of Baseline + Seeds with DROPs
+                                              prepended.
 ```
 
 `Settings.json` contains local secrets (MySQL creds). It's tracked in git but should be `assume-unchanged`-ed locally — see `Source/ACE.Mods.Spellbound/README_Spellbound.md` for the git command.
@@ -139,14 +144,15 @@ Rule of thumb: if the caller is a slash command, sync `CreateDbContext()` is fin
 Four databases are involved:
 
 1. **Core ACE databases** (`ace_world`, `ace_shard`, `ace_auth`) — managed by upstream. Don't touch their schema for our features.
-2. **Our private database** (`ace_custom_spellbound` per `Settings.json`) — owned by `SpellboundContext` and the entities under `Model/`. This is where achievements, per-character idempotency rows, account verifications, zone state, and reserved names live.
+2. **Our private database** (`ace_mod_spellbound` per `Settings.json`) — owned by `SpellboundContext` and the entities under `Model/`. This is where achievements, per-character idempotency rows, account verifications, zone state, and reserved names live.
 
-No EF Core migrations. Schema lives in two places under `Database/Spellbound/`:
+No EF Core migrations. Schema lives in three places under `Database/Spellbound/`:
 
 - **`Baseline/CreateSpellboundDb.sql`** — full schema for a fresh DB. Equivalent to "blank DB + every `Updates/*.sql` applied in chronological order." Run once on bootstrap.
-- **`Updates/<YYYY-MM-DD-NNN>-<slug>.sql`** — dated, hand-written deltas for changes since the baseline. Applied manually against `ace_custom_spellbound`.
+- **`Updates/<YYYY-MM-DD-NNN>-<slug>.sql`** — dated, hand-written deltas for changes since the baseline. Applied manually against `ace_mod_spellbound`.
+- **`Operations/reset-spellbound-db.sql`** — DESTRUCTIVE single-file drop + create + seed. Concatenation of Baseline + Seeds with `DROP TABLE` statements prepended. Dev-box convenience for nuking and reloading the schema in one shot.
 
-**Maintenance rule:** when you change an entity or `OnModelCreating`, you write BOTH (a) a new `Updates/*.sql` so existing deployments can upgrade, AND (b) the matching delta into `Baseline/CreateSpellboundDb.sql` in the same change so a fresh-box bootstrap stays equivalent to "blank + all updates." Don't rely on `EnsureCreated`.
+**Maintenance rule:** when you change an entity or `OnModelCreating`, you write THREE things in the same commit: (a) a new `Updates/*.sql` so existing deployments can upgrade, (b) the matching delta in `Baseline/CreateSpellboundDb.sql` so a fresh-box bootstrap stays equivalent to "blank + all updates," and (c) the matching delta in `Operations/reset-spellbound-db.sql` (and add a `DROP TABLE IF EXISTS` if you introduced a new table) so the dev-reset script stays equivalent to Baseline + Seeds. Don't rely on `EnsureCreated`. Same rule applies to changes in `Seeds/*.sql` — mirror them into `reset-spellbound-db.sql`.
 
 `Database/Spellbound/Seeds/` carries canonical INSERT-IGNORE rows for achievements + zones. Seed Ids are stable; code-driven `[CustomAchievement]` evaluators reference them by Id (e.g. `FirstCriticalKill` → 9001). `Database/Spellbound/Operations/season-wipe.sql` is the manual between-season procedure.
 

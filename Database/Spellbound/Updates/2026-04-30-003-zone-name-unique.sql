@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: enforce unique Zone.Name.
--- Apply against the `ace_custom_spellbound` database (or whatever
+-- Apply against the `ace_mod_spellbound` database (or whatever
 -- Settings.json::MySql.Database is set to).
 --
 -- Why: /zone tele <name> resolves a zone by its Name column. Without a unique

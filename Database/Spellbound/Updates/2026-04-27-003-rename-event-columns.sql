@@ -3,7 +3,7 @@
 -- (non-achievement-specific) names so both AchievementService and
 -- WorldStateService can share the same vocabulary.
 --
--- Apply against `ace_custom_spellbound`. Idempotent — checks for the old
+-- Apply against `ace_mod_spellbound`. Idempotent — checks for the old
 -- column name before renaming, no-ops otherwise.
 --
 -- Renames:

@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: per-character achievement application tracking
--- Apply against the `ace_custom_spellbound` database (or whatever
+-- Apply against the `ace_mod_spellbound` database (or whatever
 -- Settings.json::MySql.Database is set to).
 --
 -- Why: account-level achievement awards must apply bonuses to every character

@@ -44,7 +44,7 @@
 -- is_Deleted = 0 filter skips characters that the player already abandoned;
 -- their handles are considered freed.
 -- ----------------------------------------------------------------------------
-INSERT IGNORE INTO `ace_custom_spellbound`.`ReservedNames` (`Name`, `AccountId`, `ReservedAt`)
+INSERT IGNORE INTO `ace_mod_spellbound`.`ReservedNames` (`Name`, `AccountId`, `ReservedAt`)
 SELECT `name`, `account_Id`, UTC_TIMESTAMP(6)
   FROM `ace_shard`.`character`
  WHERE `is_Deleted` = 0;
@@ -100,9 +100,9 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- ----------------------------------------------------------------------------
 -- 3. Spellbound DB — per-character idempotency cleared, zone stages reset to 0.
--- Replace `ace_custom_spellbound` if your Settings.json::MySql.Database differs.
+-- Replace `ace_mod_spellbound` if your Settings.json::MySql.Database differs.
 -- ----------------------------------------------------------------------------
-USE `ace_custom_spellbound`;
+USE `ace_mod_spellbound`;
 
 TRUNCATE TABLE `AwardedCharacterAchievements`;
 
@@ -121,8 +121,8 @@ UPDATE `Zones`
 SELECT 'auth.account count'         AS metric, COUNT(*) AS value FROM `ace_auth`.`account`
 UNION ALL SELECT 'shard.character count',                     COUNT(*) FROM `ace_shard`.`character`
 UNION ALL SELECT 'shard.biota count',                         COUNT(*) FROM `ace_shard`.`biota`
-UNION ALL SELECT 'spellbound.AccountAchievements count',      COUNT(*) FROM `ace_custom_spellbound`.`AccountAchievements`
-UNION ALL SELECT 'spellbound.AwardedCharacterAchievements count', COUNT(*) FROM `ace_custom_spellbound`.`AwardedCharacterAchievements`
-UNION ALL SELECT 'spellbound.ReservedNames count',            COUNT(*) FROM `ace_custom_spellbound`.`ReservedNames`
-UNION ALL SELECT 'spellbound.Zones at stage 0',               COUNT(*) FROM `ace_custom_spellbound`.`Zones` WHERE `Stage` = 0
-UNION ALL SELECT 'spellbound.Zones above stage 0',            COUNT(*) FROM `ace_custom_spellbound`.`Zones` WHERE `Stage` > 0;
+UNION ALL SELECT 'spellbound.AccountAchievements count',      COUNT(*) FROM `ace_mod_spellbound`.`AccountAchievements`
+UNION ALL SELECT 'spellbound.AwardedCharacterAchievements count', COUNT(*) FROM `ace_mod_spellbound`.`AwardedCharacterAchievements`
+UNION ALL SELECT 'spellbound.ReservedNames count',            COUNT(*) FROM `ace_mod_spellbound`.`ReservedNames`
+UNION ALL SELECT 'spellbound.Zones at stage 0',               COUNT(*) FROM `ace_mod_spellbound`.`Zones` WHERE `Stage` = 0
+UNION ALL SELECT 'spellbound.Zones above stage 0',            COUNT(*) FROM `ace_mod_spellbound`.`Zones` WHERE `Stage` > 0;

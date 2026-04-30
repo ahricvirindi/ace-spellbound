@@ -155,7 +155,7 @@ An *achievement* is a row in the `Achievement` table that defines a bonus the pl
 
 ## Database
 
-Spellbound owns its own MySQL database (`ace_custom_spellbound` by default per `Settings.json`); the upstream `ace_world` / `ace_shard` / `ace_auth` are unchanged.
+Spellbound owns its own MySQL database (`ace_mod_spellbound` by default per `Settings.json`); the upstream `ace_world` / `ace_shard` / `ace_auth` are unchanged.
 
 There's no full EF Core migrations setup. Schema artifacts live under `Database/Spellbound/`:
 

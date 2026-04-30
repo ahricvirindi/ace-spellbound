@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Spellbound DB migration: reserved character names
--- Apply against the `ace_custom_spellbound` database (or whatever
+-- Apply against the `ace_mod_spellbound` database (or whatever
 -- Settings.json::MySql.Database is set to).
 --
 -- Why: season-wipe.sql truncates `ace_shard.character`, which destroys upstream's

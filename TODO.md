@@ -16,12 +16,12 @@ Blazor "Armory" app — parallel to the old Blizzard WoW Armory. Players log in 
 - Project-references `ACE.Database` + `ACE.Common` so we reuse the `Account` entity and `BCryptProvider.Verify` rather than forking auth code. Also references the mod project for the EF model + entities.
 - Cookie-based auth against `ace_auth.Account.PasswordHash`. No account creation in the web app — accounts are created in-game. Reject login for banned accounts (use whatever AccessLevel / AccountStatus the game already enforces at login).
 - Privacy: **all-or-nothing**. Any authenticated, non-banned account sees everything the site exposes. No per-character or per-account public/private toggles.
-- DB scopes: read-only against `ace_auth` and `ace_shard`; read/write against `ace_custom_spellbound` (web sessions, audit log, leaderboard counters, snapshots).
+- DB scopes: read-only against `ace_auth` and `ace_shard`; read/write against `ace_mod_spellbound` (web sessions, audit log, leaderboard counters, snapshots).
 - Hosting: same box as the game server.
 - Visual design: AC-client-native aesthetic — reuse icons, UI chrome, and palette extracted from `DATS/client_portal.dat` rather than a generic web component library. Tailwind CSS for layout/utilities; data grids only (likely MudBlazor or Radzen) where hand-rolling a sortable/paged table isn't worth it. See Phase 0.
 
 ### Snapshot strategy
-Most read paths are served from snapshot tables in `ace_custom_spellbound` rather than live game state. Snapshot writers live in the **mod** (Harmony hooks + timers); the web app is read-only against snapshots.
+Most read paths are served from snapshot tables in `ace_mod_spellbound` rather than live game state. Snapshot writers live in the **mod** (Harmony hooks + timers); the web app is read-only against snapshots.
 
 | Snapshot | Cadence |
 |---|---|
@@ -44,7 +44,7 @@ Legal posture: same gray-space the rest of the emulator already operates in (we'
 ### Phase 1 — MVP (auth + profile + badges + /who)
 - [ ] Scaffold `Source/ACE.Mods.Spellbound.Web/`; cookie auth + login page that verifies against `ace_auth.Account` via BCrypt; banned-account rejection.
 - [ ] Rate-limit login attempts (shared game-account credentials are a spraying target).
-- [ ] Schema: `CharacterProfileSnapshot`, `OnlinePlayers` in `ace_custom_spellbound`. Updates + Baseline mirror.
+- [ ] Schema: `CharacterProfileSnapshot`, `OnlinePlayers` in `ace_mod_spellbound`. Updates + Baseline mirror.
 - [ ] Snapshot writers in the mod: profile snapshot on logout + 30-min timer; roster snapshot on login/logout + 5-min timer. New directory `EventHandlers/SnapshotRules/` (or fold into existing handlers — decide at impl time).
 - [ ] Character search by name (case-insensitive, excludes `is_Deleted = 1`).
 - [ ] Character profile page: level, total XP, attributes (Str/End/Coord/Quick/Focus/Self), vitals (Health/Stamina/Mana), skills with trained/specialized state. Source from `CharacterProfileSnapshot`.

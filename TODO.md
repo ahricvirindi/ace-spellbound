@@ -65,3 +65,7 @@ Today only per-achievement `Progress` is tracked. No per-creature kill map, no P
 ### Phase 4 — Admin (much lower priority)
 - [ ] Achievement / `WorldStateRule` / Zone CRUD UI.
 - [ ] Extended account properties (Discord handle, etc.).
+
+
+## Server-Specific Decal Plugin (low priority)
+- [ ] Ideate / define feature set that would make sense inside a custom decal plugin (like lum per hour)

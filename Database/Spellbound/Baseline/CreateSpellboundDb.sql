@@ -15,7 +15,7 @@
 -- equivalent to "blank DB + every Updates/*.sql in chronological order."
 --
 -- Baseline as of: 2026-04-29 (covers Updates through
---                              2026-04-29-001-awarded-character-achievements.sql).
+--                              2026-04-29-002-add-landblock-alias.sql).
 -- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -143,5 +143,24 @@ CREATE TABLE IF NOT EXISTS `WorldStateRules` (
 
 CREATE INDEX `IX_WorldStateRules_EventTrigger`
     ON `WorldStateRules` (`EventTrigger`);
+
+-- ----------------------------------------------------------------------------
+-- LandblockAliases: human-readable name for an arbitrary landblock. Read by
+-- Helpers/LandblockNaming.Resolve to label /who output and any future
+-- location-aware UI; written by the /aliashere admin command (which uses the
+-- caller's current landblock — no hex argument). Resolution priority is
+-- LandblockAlias -> Town.Name -> formatted hex.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `LandblockAliases` (
+    `Id`              INT          NOT NULL AUTO_INCREMENT,
+    `Landblock`       VARCHAR(50)  NOT NULL,
+    `Name`            VARCHAR(200) NOT NULL,
+    `SetByAccountId`  INT UNSIGNED NULL,
+    `UpdatedAt`       DATETIME(6)  NOT NULL,
+    PRIMARY KEY (`Id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+CREATE UNIQUE INDEX `IX_LandblockAliases_Landblock`
+    ON `LandblockAliases` (`Landblock`);
 
 SET FOREIGN_KEY_CHECKS = 1;

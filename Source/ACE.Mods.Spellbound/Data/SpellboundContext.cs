@@ -17,6 +17,7 @@ namespace ACE.Mods.Spellbound.Data
         public DbSet<Town> Towns { get; set; }
         public DbSet<AccountVerification> AccountVerifications { get; set; }
         public DbSet<WorldStateRule> WorldStateRules { get; set; }
+        public DbSet<LandblockAlias> LandblockAliases { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -67,6 +68,12 @@ namespace ACE.Mods.Spellbound.Data
                     .WithMany()
                     .HasForeignKey(x => x.TownId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<LandblockAlias>(b =>
+            {
+                b.HasKey(x => x.Id);
+                b.HasIndex(x => x.Landblock).IsUnique();
             });
 
             base.OnModelCreating(modelBuilder);

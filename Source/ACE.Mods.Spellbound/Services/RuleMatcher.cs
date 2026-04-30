@@ -39,10 +39,15 @@ namespace ACE.Mods.Spellbound.Services
 
         private static bool MatchesLevel(EventFilterType filterType, string target, PlayerLevelEvent e)
         {
-            if (filterType != EventFilterType.Level)
+            if (!int.TryParse(target, out var threshold))
                 return false;
 
-            return int.TryParse(target, out var threshold) && e.ToLevel == threshold;
+            return filterType switch
+            {
+                EventFilterType.Level => e.ToLevel == threshold,
+                EventFilterType.LevelMin => e.ToLevel >= threshold,
+                _ => false,
+            };
         }
     }
 }

@@ -7,5 +7,6 @@ namespace ACE.Mods.Spellbound.Model.Enumerations
         ItemType = 3,
         QuestId = 4,
         Level = 5,
+        LevelMin = 6,
     }
 }

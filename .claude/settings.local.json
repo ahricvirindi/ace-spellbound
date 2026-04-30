@@ -11,7 +11,8 @@
       "Bash(/c/Users/Eric/.dotnet/tools/ilspycmd ACE.Shared.dll -p -o decomp)",
       "Bash(xargs grep *)",
       "Bash(git checkout *)",
-      "Bash(grep -v \"//\")"
+      "Bash(grep -v \"//\")",
+      "Bash(dotnet sln *)"
     ]
   }
 }

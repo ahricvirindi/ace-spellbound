@@ -304,3 +304,6 @@ docker-compose.yml
 docker-compose.arm64
 
 Mods/*
+
+# Spellbound dat extractor output (Phase 0 asset extraction is rerun on dat updates).
+/out/

@@ -38,11 +38,11 @@ Pull visual assets out of the local AC dat files so the site looks like the AC c
 
 Legal posture: same gray-space the rest of the emulator already operates in (we're using assets from dats the user supplied to a server they run). Keep extracted assets bundled with the web app; don't redistribute the raw dats.
 
-- [ ] New project `Source/ACE.Mods.Spellbound.DatExtractor/` (console app, references `ACE.DatLoader`). One-shot tool — not part of the normal build, rerun on dat updates.
-- [ ] Initialize `DatManager` against `DATS/`, iterate the texture range (`0x06000000–0x07FFFFFF`), call `ExportTexture()` per entry.
-- [ ] Use `SkillTable` (0x0E000004) and `SpellTable` to map icon IDs to human-readable names — output `out/skills/heavy_weapons.png`, `out/spells/strength_self_vi.png`, not raw hex IDs.
-- [ ] Categorize output directories: `out/skills/`, `out/spells/`, `out/items/`, `out/attributes/`, `out/ui-chrome/`, `out/uncategorized/`. UI chrome + uncategorized need a manual visual review pass.
-- [ ] Curated subset (likely a few hundred files) committed into `Source/ACE.Mods.Spellbound.Web/wwwroot/img/ac/`. Web app references those as static files; no dat dependency at runtime.
+- [x] New project `Source/ACE.Mods.Spellbound.DatExtractor/` (console app, references `ACE.DatLoader`). In `ACE.sln`; one-shot tool — rerun on dat updates via `dotnet run --project Source/ACE.Mods.Spellbound.DatExtractor`. Output goes to `out/dat-extract/` (gitignored).
+- [x] Initialize `DatManager` against `DATS/`, iterate `PortalDat.AllFiles` filtered to `DatFileType.Texture` (high-byte 0x06; the original `0x06000000–0x07FFFFFF` range was loose — 0x07 is `RenderTexture`, a different type), call `ExportTexture()` for uncategorized and `Bitmap.Save` directly for named outputs.
+- [x] Use `SkillTable` and `SpellTable` to map icon IDs to human-readable names — current run produced `out/dat-extract/skills/heavy_weapons.png`, `out/dat-extract/spells/acid_arc_i.png`, etc. 38 skills + 6,266 spells + 20,369 uncategorized textures, 0 failures.
+- [ ] **Route items / attributes / ui-chrome categories.** Currently only `skills/`, `spells/`, and `uncategorized/` are populated. `items/` needs a weenie → IconId map (lives in world DB, not a flat dat table); `attributes/` needs a `SecondaryAttributeTable` walk; `ui-chrome/` needs a hand-curated ID list. Pick up when curation in step 5 surfaces what's actually needed.
+- [ ] Curated subset (likely a few hundred files) committed into `Source/ACE.Mods.Spellbound.Web/wwwroot/img/ac/`. Web app references those as static files; no dat dependency at runtime. Blocked on Phase 1 (web project doesn't exist yet).
 
 ### Phase 1 — MVP (auth + profile + badges + /who)
 - [ ] Scaffold `Source/ACE.Mods.Spellbound.Web/`; cookie auth + login page that verifies against `ace_auth.Account` via BCrypt; banned-account rejection.

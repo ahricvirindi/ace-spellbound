@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <RootNamespace>ACE.Mods.Spellbound.DatExtractor</RootNamespace>
+        <AssemblyName>ACE.Mods.Spellbound.DatExtractor</AssemblyName>
+        <PlatformTarget>x64</PlatformTarget>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ACE.DatLoader\ACE.DatLoader.csproj" />
+    </ItemGroup>
+
+</Project>

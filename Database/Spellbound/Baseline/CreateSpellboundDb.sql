@@ -1,8 +1,12 @@
 -- ============================================================================
--- Spellbound DB baseline schema.
--- Run once against an empty `ace_mod_spellbound` (or whatever
--- Settings.json::MySql.Database is set to) to bootstrap a fresh dev box or
--- a new deployment.
+-- Spellbound DB baseline schema. Wipe-and-reload.
+--
+-- DESTRUCTIVE. Drops every Spellbound-owned table and recreates them from
+-- scratch. Safe to run on any state of `ace_mod_spellbound` (or whatever
+-- Settings.json::MySql.Database is set to) — empty or populated. Use to
+-- bootstrap a fresh dev box, sync an environment with the latest schema, or
+-- recover from a corrupted local schema. NEVER run against production unless
+-- that's exactly what you mean.
 --
 -- This file is the single source of truth for the schema as of the most
 -- recent dated script under Database/Spellbound/Updates/. After running this,
@@ -10,15 +14,38 @@
 -- header date below — they're already folded in. Future deltas land as new
 -- Updates/*.sql scripts.
 --
+-- For schema + canonical seed data in one shot, use
+-- Operations/reset-spellbound-db.sql, which adds the INSERT-IGNORE seeds
+-- on top.
+--
 -- Maintenance rule: when an Updates/*.sql lands, mirror the resulting schema
--- shape into this file in the same PR so a fresh-box bootstrap stays
--- equivalent to "blank DB + every Updates/*.sql in chronological order."
+-- shape into this file in the same PR. If you introduce a new table, add
+-- a matching DROP TABLE IF EXISTS line to the drop block below as well.
 --
 -- Baseline as of: 2026-04-30 (covers Updates through
---                              2026-04-30-003-zone-name-unique.sql).
+--                              2026-04-30-006-add-leaderboards.sql).
 -- ============================================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
+
+-- ----------------------------------------------------------------------------
+-- DROP all Spellbound tables. Order doesn't matter with FK checks off.
+-- Keep this list in sync with the CREATE TABLE statements below.
+-- ----------------------------------------------------------------------------
+DROP TABLE IF EXISTS `AccountAchievements`;
+DROP TABLE IF EXISTS `CharacterAchievements`;
+-- Legacy name from before commit 622b59a4. Dropped explicitly so dev DBs
+-- that bootstrapped pre-rename get cleaned up on the wipe-and-reload.
+DROP TABLE IF EXISTS `AwardedCharacterAchievements`;
+DROP TABLE IF EXISTS `AccountVerifications`;
+DROP TABLE IF EXISTS `WorldStateRules`;
+DROP TABLE IF EXISTS `ReservedNames`;
+DROP TABLE IF EXISTS `OnlinePlayers`;
+DROP TABLE IF EXISTS `CharacterProfileSnapshots`;
+DROP TABLE IF EXISTS `CharacterEquipmentSnapshots`;
+DROP TABLE IF EXISTS `Leaderboards`;
+DROP TABLE IF EXISTS `Achievements`;
+DROP TABLE IF EXISTS `Zones`;
 
 -- ----------------------------------------------------------------------------
 -- Achievement: catalog row referenced by AccountAchievements + the on-grant
@@ -166,7 +193,7 @@ CREATE INDEX `IX_WorldStateRules_EventTrigger`
 -- season wipes so handles can't be sniped after season-wipe.sql truncates
 -- shard.character. Populated by season-wipe.sql pre-truncate; read by the
 -- Harmony prefix on CharacterHandler.CharacterCreateEx (see
--- EventHandlers/AchievementRules/CharacterCreateReservedNameHandler.cs).
+-- EventHandlers/AccountRules/PlayerOnCreateReservedNameHandler.cs).
 -- Case-insensitive uniqueness via utf8mb4_general_ci on the Name column.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `ReservedNames` (
@@ -182,5 +209,108 @@ CREATE UNIQUE INDEX `IX_ReservedNames_Name`
 
 CREATE INDEX `IX_ReservedNames_AccountId`
     ON `ReservedNames` (`AccountId`);
+
+-- ----------------------------------------------------------------------------
+-- OnlinePlayers: /who roster snapshot. One row per online character; the mod
+-- writes on login (insert) / logout (delete) and a 5-minute timer rebuilds
+-- the table from the live PlayerManager roster as the truth source. Read-only
+-- from the web app.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `OnlinePlayers` (
+    `CharacterId`   INT UNSIGNED NOT NULL,
+    `AccountId`     INT          NOT NULL,
+    `CharacterName` VARCHAR(64)  NOT NULL,
+    `Level`         INT          NOT NULL,
+    `Landblock`     INT UNSIGNED NULL,
+    `LandblockName` VARCHAR(128) NULL,
+    `SeenAt`        DATETIME(6)  NOT NULL,
+    PRIMARY KEY (`CharacterId`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+CREATE INDEX `IX_OnlinePlayers_SeenAt`
+    ON `OnlinePlayers` (`SeenAt`);
+
+CREATE INDEX `IX_OnlinePlayers_AccountId`
+    ON `OnlinePlayers` (`AccountId`);
+
+-- ----------------------------------------------------------------------------
+-- CharacterProfileSnapshots: profile-page snapshot. Written on logout and by
+-- a 30-minute timer for online characters. SkillsJson is a free-form blob
+-- owned by SnapshotService — list of {Skill, State, Ranks, Base, Current}
+-- objects. Stored as TEXT so the shape can evolve without an EF migration.
+-- Read-only from the web app.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `CharacterProfileSnapshots` (
+    `CharacterId`   INT UNSIGNED NOT NULL,
+    `AccountId`     INT          NOT NULL,
+    `CharacterName` VARCHAR(64)  NOT NULL,
+    `Level`         INT          NOT NULL,
+    `TotalXp`       BIGINT       NOT NULL,
+    `UnassignedXp`  BIGINT       NOT NULL DEFAULT 0,
+    `Strength`      INT          NOT NULL,
+    `Endurance`     INT          NOT NULL,
+    `Coordination`  INT          NOT NULL,
+    `Quickness`     INT          NOT NULL,
+    `Focus`         INT          NOT NULL,
+    `Self`          INT          NOT NULL,
+    `HealthMax`     INT          NOT NULL,
+    `StaminaMax`    INT          NOT NULL,
+    `ManaMax`       INT          NOT NULL,
+    `SkillsJson`    TEXT         NOT NULL,
+    `SnapshottedAt` DATETIME(6)  NOT NULL,
+    PRIMARY KEY (`CharacterId`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+CREATE INDEX `IX_CharacterProfileSnapshots_AccountId`
+    ON `CharacterProfileSnapshots` (`AccountId`);
+
+CREATE INDEX `IX_CharacterProfileSnapshots_Name`
+    ON `CharacterProfileSnapshots` (`CharacterName`);
+
+-- ----------------------------------------------------------------------------
+-- CharacterEquipmentSnapshots: equipped-gear snapshot for the profile page.
+-- Written on logout and by the 30-minute timer for online characters, in
+-- lockstep with CharacterProfileSnapshots. EquipmentJson is owned by
+-- SnapshotService — list of {Name, Slot, IconId, Workmanship, Damage,
+-- ArmorLevel, Spellcraft, MaxMana, Value, Spells} entries.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `CharacterEquipmentSnapshots` (
+    `CharacterId`   INT UNSIGNED NOT NULL,
+    `AccountId`     INT          NOT NULL,
+    `CharacterName` VARCHAR(64)  NOT NULL,
+    `EquipmentJson` TEXT         NOT NULL,
+    `SnapshottedAt` DATETIME(6)  NOT NULL,
+    PRIMARY KEY (`CharacterId`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+CREATE INDEX `IX_CharacterEquipmentSnapshots_AccountId`
+    ON `CharacterEquipmentSnapshots` (`AccountId`);
+
+CREATE INDEX `IX_CharacterEquipmentSnapshots_Name`
+    ON `CharacterEquipmentSnapshots` (`CharacterName`);
+
+-- ----------------------------------------------------------------------------
+-- Leaderboards: per-character event-driven counters (e.g. KillsByCreature
+-- with Target=creature type name). Category is the LeaderboardCategory enum;
+-- Target is a free-form sub-key, '' for category-wide leaderboards. Truncated
+-- on season wipe (see Operations/season-wipe.sql).
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `Leaderboards` (
+    `Id`            INT          NOT NULL AUTO_INCREMENT,
+    `Category`      INT          NOT NULL,
+    `Target`        VARCHAR(100) NOT NULL DEFAULT '',
+    `CharacterId`   INT UNSIGNED NOT NULL,
+    `AccountId`     INT          NOT NULL,
+    `CharacterName` VARCHAR(64)  NOT NULL,
+    `Count`         BIGINT       NOT NULL,
+    `UpdatedAt`     DATETIME(6)  NOT NULL,
+    PRIMARY KEY (`Id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci;
+
+CREATE UNIQUE INDEX `IX_Leaderboards_Cat_Target_Char`
+    ON `Leaderboards` (`Category`, `Target`, `CharacterId`);
+
+CREATE INDEX `IX_Leaderboards_Rank`
+    ON `Leaderboards` (`Category`, `Target`, `Count`);
 
 SET FOREIGN_KEY_CHECKS = 1;

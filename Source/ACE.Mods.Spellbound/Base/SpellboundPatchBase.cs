@@ -32,7 +32,13 @@ namespace ACE.Mods.Spellbound.Base
             }
 
             var services = new ServiceCollection();
-            string connectionString = $"server={Settings.MySql.Host};database={Settings.MySql.Database};user={Settings.MySql.Username};password={Settings.MySql.Password}";
+            // Mirror upstream's connection-string shape (Port + ConnectionOptions). Without
+            // AllowPublicKeyRetrieval=True the connection fails on MySQL 8 + caching_sha2_password,
+            // and without AllowUserVariables=True the season-wipe @-vars wouldn't bind through us
+            // either. ConnectionOptions is the same constant ACE.Database uses.
+            var mysql = Settings.MySql;
+            string connectionString =
+                $"server={mysql.Host};port={mysql.Port};database={mysql.Database};user={mysql.Username};password={mysql.Password};{mysql.ConnectionOptions}";
             services.AddPooledDbContextFactory<SpellboundContext>(options =>
                 options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString),
                     builder => builder.EnableRetryOnFailure(10)));

@@ -1,0 +1,120 @@
+@page "/leaderboards"
+@attribute [Authorize]
+@using ACE.Mods.Spellbound.Model.Enumerations
+@inject LeaderboardService Lb
+
+<PageTitle>Leaderboards — Asheron's Eye</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Leaderboards</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1">
+            <div class="pa-3">
+                <MudText Typo="Typo.h6">Total XP</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                    From the 30-minute profile snapshot · top @xp.Count
+                </MudText>
+            </div>
+            @if (xp.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Class="ma-3">No XP snapshots yet.</MudAlert>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true" Striped="true">
+                    <thead>
+                        <tr>
+                            <th style="width: 3rem;">#</th>
+                            <th>Character</th>
+                            <th style="text-align:right">XP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < xp.Count; i++)
+                        {
+                            var row = xp[i];
+                            <tr>
+                                <td>@RankCell(i)</td>
+                                <td><MudLink Href="@($"/character/{Uri.EscapeDataString(row.CharacterName)}")">@row.CharacterName</MudLink></td>
+                                <td style="text-align:right">@row.Score.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="1">
+            <div class="pa-3">
+                <MudText Typo="Typo.h6">Tusker Kills</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Tertiary">
+                    Live counter, incremented on every kill · top @tusker.Count
+                </MudText>
+            </div>
+            @if (tusker.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Class="ma-3">No tusker kills recorded yet.</MudAlert>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true" Striped="true">
+                    <thead>
+                        <tr>
+                            <th style="width: 4rem;">#</th>
+                            <th>Character</th>
+                            <th style="text-align:right">Kills</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < tusker.Count; i++)
+                        {
+                            var row = tusker[i];
+                            <tr>
+                                <td>@RankCell(i)</td>
+                                <td><MudLink Href="@($"/character/{Uri.EscapeDataString(row.CharacterName)}")">@row.CharacterName</MudLink></td>
+                                <td style="text-align:right">@row.Score.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private IReadOnlyList<LeaderboardEntry> xp = Array.Empty<LeaderboardEntry>();
+    private IReadOnlyList<LeaderboardEntry> tusker = Array.Empty<LeaderboardEntry>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        xp = await Lb.GetTopAsync(LeaderboardCategory.TotalXp);
+        tusker = await Lb.GetTopAsync(LeaderboardCategory.KillsByCreature, "Tusker");
+    }
+
+    // Rank cell: index → "1" / "2" / "3" / etc., with a tinted trophy icon
+    // for the top three. Material's EmojiEvents is the closest icon to a
+    // generic trophy/medal in MudBlazor's bundled set.
+    private static RenderFragment RankCell(int index) => @<text>
+        <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+            <span style="min-width:1.25rem; display:inline-block;">@(index + 1)</span>
+            @if (index < 3)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents"
+                         Size="Size.Small"
+                         Style="@($"color:{MedalColor(index)};")" />
+            }
+        </span>
+    </text>;
+
+    private static string MedalColor(int index) => index switch
+    {
+        0 => "#FFC107", // gold
+        1 => "#9E9E9E", // silver
+        2 => "#CD7F32", // bronze
+        _ => "transparent"
+    };
+}

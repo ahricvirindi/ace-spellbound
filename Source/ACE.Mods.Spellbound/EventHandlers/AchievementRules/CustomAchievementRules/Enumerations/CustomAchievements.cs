@@ -1,16 +1,14 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace ACE.Mods.Spellbound.EventHandlers.AchievementRules.CustomAchievementRules.Enumerations
 {
-    // the custom achievements are in a numeric id range of 900 - 999
-    // these are reserved for situations in which the usual achievement
-    // logic just cant work
+    // Code-driven achievement ids. The numeric id MUST match the corresponding
+    // row in `Database/Spellbound/Seeds/achievements.sql` — the
+    // CustomAchievementRegistry passes the enum value to AwardById, so a
+    // mismatch silently no-ops the award.
+    //
+    // Convention: 9000+ matches the data-driven seed range used elsewhere in
+    // achievements.sql.
     public enum CustomAchievements
     {
-        FIRST_CRIT_KILL = 900
+        FIRST_CRIT_KILL = 9001
     }
 }

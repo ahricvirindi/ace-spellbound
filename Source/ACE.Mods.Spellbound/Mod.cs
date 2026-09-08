@@ -23,7 +23,14 @@ namespace ACE.Mods.Spellbound
             // evaluators in the mod assembly. Done before Setup() so any
             // registration error fails the mod boot rather than going live with
             // broken event wiring.
+            //
+            // Reset() before discovery so HotReload picks up new/removed/renamed
+            // handlers — without it, both registries latch on first Register()
+            // and silently no-op the second pass, leaving subscribers wired
+            // against the prior assembly's types.
             var asm = Assembly.GetExecutingAssembly();
+            EventBus.Reset();
+            CustomAchievementRegistry.Reset();
             EventBus.DiscoverAndRegister(asm);
             CustomAchievementRegistry.DiscoverAndRegister(asm);
 

@@ -1,0 +1,75 @@
+@page "/who"
+@attribute [Authorize]
+@using ACE.Mods.Spellbound.Helpers
+@inject WhoService WhoSvc
+
+<PageTitle>Who's online — Asheron's Eye</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Players online</MudText>
+
+@if (rows.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">
+        No players online right now. The roster snapshot is rebuilt every 5 minutes.
+    </MudAlert>
+}
+else
+{
+    <MudPaper>
+        <MudSimpleTable Dense="true" Hover="true" Striped="true">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Level</th>
+                    <th>Where</th>
+                    <th>Seen</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in rows)
+                {
+                    var hex = p.Landblock.HasValue ? LandblockNaming.Format(p.Landblock.Value) : null;
+                    var hasFriendlyName = !string.IsNullOrEmpty(p.LandblockName) && p.LandblockName != hex;
+                    <tr>
+                        <td><MudLink Href="@($"/character/{Uri.EscapeDataString(p.CharacterName)}")">@p.CharacterName</MudLink></td>
+                        <td>@p.Level</td>
+                        <td>
+                            @if (hasFriendlyName)
+                            {
+                                <div>@p.LandblockName</div>
+                                <div class="landblock-hex">@hex</div>
+                            }
+                            else
+                            {
+                                <span class="landblock-hex">@(hex ?? "—")</span>
+                            }
+                        </td>
+                        <td>@RelativeTime(p.SeenAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+    <MudText Typo="Typo.caption" Color="Color.Tertiary" Class="mt-2">
+        @rows.Count player@(rows.Count == 1 ? "" : "s") · roster rebuilt every 5 minutes.
+    </MudText>
+}
+
+@code {
+    private IReadOnlyList<ACE.Mods.Spellbound.Model.OnlinePlayer> rows =
+        Array.Empty<ACE.Mods.Spellbound.Model.OnlinePlayer>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        rows = await WhoSvc.GetOnlineAsync();
+    }
+
+    private static string RelativeTime(DateTime utc)
+    {
+        var d = DateTime.UtcNow - utc;
+        if (d.TotalSeconds < 60) return "just now";
+        if (d.TotalMinutes < 60) return $"{(int)d.TotalMinutes}m ago";
+        if (d.TotalHours < 24) return $"{(int)d.TotalHours}h ago";
+        return utc.ToString("u");
+    }
+}

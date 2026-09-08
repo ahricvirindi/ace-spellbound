@@ -1,0 +1,197 @@
+html, body {
+    height: 100%;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Login form */
+.login-field {
+    margin-bottom: 1rem;
+}
+
+.login-field label {
+    display: block;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+    color: rgba(0,0,0,0.7);
+}
+
+.login-field input {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid rgba(0,0,0,0.23);
+    border-radius: 4px;
+    background: white;
+    box-sizing: border-box;
+}
+
+.login-field input:focus {
+    outline: none;
+    border-color: #594ae2;
+    box-shadow: 0 0 0 1px #594ae2;
+}
+
+.login-button {
+    width: 100%;
+    padding: 0.625rem;
+    font-size: 1rem;
+    font-weight: 500;
+    background: #594ae2;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 0.5rem;
+}
+
+.login-button:hover {
+    background: #4737d6;
+}
+
+/* Search row (used on /characters) */
+.search-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.search-input {
+    flex: 1;
+    padding: 0.625rem 0.75rem;
+    font-size: 1rem;
+    border: 1px solid rgba(0,0,0,0.23);
+    border-radius: 4px;
+    background: white;
+    box-sizing: border-box;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #594ae2;
+    box-shadow: 0 0 0 1px #594ae2;
+}
+
+/* Equipment doll on /character/{Name}. Vertical list of clickable slot cards
+   on the left, the right-side detail panel renders the selected item. */
+.doll {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.doll-slot {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 4px;
+    background: white;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 100ms, background-color 100ms;
+}
+
+.doll-slot:hover {
+    border-color: rgba(89,74,226,0.5);
+    background: rgba(89,74,226,0.04);
+}
+
+.doll-slot-selected {
+    border-color: #594ae2;
+    background: rgba(89,74,226,0.08);
+}
+
+.doll-slot img,
+.doll-slot-icon-placeholder {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.doll-slot-text {
+    min-width: 0;
+}
+
+.doll-slot-label {
+    font-size: 0.7rem;
+    color: rgba(0,0,0,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.doll-slot-name {
+    font-size: 0.95rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Item detail panel on the right. */
+.item-detail-stats > div {
+    margin-bottom: 0.25rem;
+}
+
+.item-detail-list {
+    margin: 0;
+    padding-left: 1.25rem;
+}
+
+.item-detail-list li {
+    font-size: 0.875rem;
+    margin-bottom: 0.15rem;
+}
+
+.item-detail-spells {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.item-detail-spell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.item-detail-spell img {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+}
+
+/* /who landblock hex display — copy-pasteable into a Zones record. */
+.landblock-hex {
+    font-family: 'Consolas', 'Menlo', monospace;
+    font-size: 0.75rem;
+    color: rgba(0, 0, 0, 0.6);
+}
+
+/* AppBar logout */
+.logout-form {
+    display: inline;
+}
+
+.logout-button {
+    background: transparent;
+    color: inherit;
+    border: none;
+    font: inherit;
+    text-transform: uppercase;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.logout-button:hover {
+    background: rgba(255,255,255,0.1);
+}

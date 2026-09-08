@@ -125,7 +125,7 @@ namespace ACE.Mods.Spellbound.Services
                     // exception to distinguish "duplicate, no-op" from a real failure. INSERT IGNORE
                     // keeps the success path branch-free.
                     return db.Database.ExecuteSqlInterpolated($@"
-                        INSERT IGNORE INTO `AwardedCharacterAchievements`
+                        INSERT IGNORE INTO `CharacterAchievements`
                             (`CharacterId`, `AchievementId`, `AppliedAt`)
                         VALUES
                             ({characterId}, {ach.Id}, UTC_TIMESTAMP(6));");
@@ -156,7 +156,7 @@ namespace ACE.Mods.Spellbound.Services
                     {
                         SpellboundLog.Error(
                             $"ApplyToCharacter: bonus mutation FAILED for {character.Name} ({characterId:X8}) on '{ach.Name}'. " +
-                            $"AwardedCharacterAchievements row is now a phantom — delete it manually to retry. {ex}");
+                            $"CharacterAchievements row is now a phantom — delete it manually to retry. {ex}");
                     }
                 });
         }

@@ -14,10 +14,13 @@
 --                  destroys all player characters, their inventory, every
 --                  player corpse, every dropped item, every allegiance, every
 --                  house permission row.
---   - Spellbound:  AwardedCharacterAchievements (per-char idempotency rows
---                  reference now-deleted character GUIDs and would mis-skip
---                  the apply walk if a future GUID collides). Zones.Stage is
---                  reset to 0; rows themselves are kept.
+--   - Spellbound:  CharacterAchievements (per-char idempotency rows reference
+--                  now-deleted character GUIDs and would mis-skip the apply
+--                  walk if a future GUID collides). Per-character snapshot
+--                  rows (OnlinePlayers, CharacterProfileSnapshots,
+--                  CharacterEquipmentSnapshots) and Leaderboards rows are also
+--                  truncated. Zones.Stage is reset to 0; Zones rows themselves
+--                  are kept.
 --
 -- WHAT SURVIVES:
 --   - Auth DB:     account rows, passwords, access levels — fully untouched.
@@ -104,7 +107,17 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ----------------------------------------------------------------------------
 USE `ace_mod_spellbound`;
 
-TRUNCATE TABLE `AwardedCharacterAchievements`;
+TRUNCATE TABLE `CharacterAchievements`;
+
+-- Snapshot tables track per-character state that's now invalid (the chars
+-- they reference are about to be truncated). Drop the rows; the next mod
+-- boot + login cycle will re-populate.
+TRUNCATE TABLE `OnlinePlayers`;
+TRUNCATE TABLE `CharacterProfileSnapshots`;
+TRUNCATE TABLE `CharacterEquipmentSnapshots`;
+
+-- Leaderboards reset on season — kill counters, etc. are season-scoped.
+TRUNCATE TABLE `Leaderboards`;
 
 UPDATE `Zones`
    SET `Stage`     = 0,
@@ -122,7 +135,7 @@ SELECT 'auth.account count'         AS metric, COUNT(*) AS value FROM `ace_auth`
 UNION ALL SELECT 'shard.character count',                     COUNT(*) FROM `ace_shard`.`character`
 UNION ALL SELECT 'shard.biota count',                         COUNT(*) FROM `ace_shard`.`biota`
 UNION ALL SELECT 'spellbound.AccountAchievements count',      COUNT(*) FROM `ace_mod_spellbound`.`AccountAchievements`
-UNION ALL SELECT 'spellbound.AwardedCharacterAchievements count', COUNT(*) FROM `ace_mod_spellbound`.`AwardedCharacterAchievements`
+UNION ALL SELECT 'spellbound.CharacterAchievements count',    COUNT(*) FROM `ace_mod_spellbound`.`CharacterAchievements`
 UNION ALL SELECT 'spellbound.ReservedNames count',            COUNT(*) FROM `ace_mod_spellbound`.`ReservedNames`
 UNION ALL SELECT 'spellbound.Zones at stage 0',               COUNT(*) FROM `ace_mod_spellbound`.`Zones` WHERE `Stage` = 0
 UNION ALL SELECT 'spellbound.Zones above stage 0',            COUNT(*) FROM `ace_mod_spellbound`.`Zones` WHERE `Stage` > 0;

@@ -12,7 +12,20 @@
       "Bash(xargs grep *)",
       "Bash(git checkout *)",
       "Bash(grep -v \"//\")",
-      "Bash(dotnet sln *)"
+      "Bash(dotnet sln *)",
+      "Bash(curl -sk -o /tmp/login.html -w \"HTTP %{http_code}\\\\nSize: %{size_download}\\\\n\" https://localhost:7099/login)",
+      "Bash(grep -oE \"MySqlException[^<]{0,300}\" /tmp/login_response.html)",
+      "Bash(curl -sk -o /tmp/home.html -w \"GET / → HTTP %{http_code}\\\\n\" https://localhost:7099/)",
+      "Bash(awk '{print $5, $9}')",
+      "Bash(curl -sk -o /dev/null -w \"GET /img/ac/items/06000160.png → HTTP %{http_code}, size %{size_download}\\\\n\" https://localhost:7099/img/ac/items/06000160.png)",
+      "Bash(grep -A 30 \"CREATE TABLE.* \\\\`character\\\\` \" Database/Base/ShardBase.sql)",
+      "Bash(grep -v \"\\\\.cs:.*//\")",
+      "Bash(sed -n '50,75p' Source/ACE.Mods.Spellbound/CommandHandlers/AdminCommands/GrantAchievementCommandHandler.cs)",
+      "Bash(sed -n '45,75p' Source/ACE.Mods.Spellbound/Services/AchievementService.cs)",
+      "Bash(sed -n '120,140p' Source/ACE.Mods.Spellbound/Services/AchievementService.cs)",
+      "Bash(sed -n '115,130p' Source/ACE.Mods.Spellbound/Services/WorldStateService.cs)",
+      "Bash(sed -n '155,165p' Source/ACE.Mods.Spellbound/Services/AchievementService.cs)",
+      "Bash(sed -n '8,15p' Source/ACE.Mods.Spellbound/EventHandlers/AchievementRules/PlayerOnEnterWorldHandler.cs)"
     ]
   }
 }

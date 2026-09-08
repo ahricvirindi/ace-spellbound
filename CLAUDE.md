@@ -40,7 +40,7 @@ Source/
     Config/Settings.cs         ← typed settings (loaded from Settings.json)
     Data/
       SpellboundContext.cs     ← EF Core DbContext for our private MySQL DB
-    EventHandlers/             ← four peer subfolders, one per kind of subscriber
+    EventHandlers/             ← peer subfolders, one per kind of subscriber
       AchievementRules/        ← Mostly ONE file per SpellboundEventTrigger:
                                  <Trigger>Handler.cs — Harmony publisher + the single
                                  [SpellboundEvent] subscriber that runs the standard
@@ -49,15 +49,25 @@ Source/
                                  Achievement-domain lifecycle Harmony patches that don't
                                  go through EventBus also live here (e.g.
                                  PlayerOnCharacterCreatedHandler, PlayerOnEnterWorldHandler).
+        CustomAchievementRules/← [CustomAchievement]-tagged code-driven achievement
+                                 evaluators (NESTED under AchievementRules/) — for
+                                 eligibility logic that doesn't fit the data-driven
+                                 (FilterType, Target) shape.
       GameplayRules/           ← independent [SpellboundEvent] subscribers that mutate
                                  gameplay (e.g., cancel a cast). One file per rule.
-      CustomAchievementRules/  ← [CustomAchievement]-tagged code-driven achievement
-                                 evaluators — for eligibility logic that doesn't fit
-                                 the data-driven (FilterType, Target) shape
-      SeasonLifecycleRules/    ← lifecycle Harmony patches that aren't achievement-domain
-                                 — currently CharacterCreateReservedNameHandler, which
-                                 enforces ReservedNames at character creation across
-                                 season-wipe boundaries. No EventBus, no [SpellboundEvent].
+      AccountRules/            ← lifecycle Harmony patches that gate account-side
+                                 actions across season boundaries — currently
+                                 PlayerOnCreateReservedNameHandler, which enforces
+                                 ReservedNames at character creation. No EventBus,
+                                 no [SpellboundEvent].
+      SnapshotRules/           ← snapshot-table writers for the Asheron's Eye web app
+                                 (PlayerLoginRosterHandler, PlayerLogoutSnapshotHandler,
+                                 SnapshotTimers). Lifecycle hooks + a periodic timer,
+                                 no EventBus. Writes go through Services/SnapshotService.
+      LeaderboardRules/        ← second [SpellboundEvent] subscribers per trigger that
+                                 record leaderboard counters (CLAUDE.md "earn its own
+                                 subscriber" carve-out). Writes through
+                                 Services/LeaderboardService.
     Helpers/                   ← cross-cutting utilities, namespace globally imported
       SpellboundLog.cs         ← Info/Warn/Error wrappers that own the [Spellbound] log prefix
       PlayerMessaging.cs       ← Tell / TellAccount / BroadcastWorld extensions on Player
@@ -69,8 +79,9 @@ Source/
       SpellboundDispatcher.cs  ← the standard three-step pipeline every per-trigger handler runs
       CustomAchievementRegistry.cs ← boot-time discovery + dispatch for [CustomAchievement]
     Model/                     ← EF entities (Achievement, AccountAchievement,
-                                  AwardedCharacterAchievement, Zone, WorldStateRule,
-                                  ReservedName, ...)
+                                  CharacterAchievement, Zone, WorldStateRule,
+                                  ReservedName, OnlinePlayer, CharacterProfileSnapshot,
+                                  CharacterEquipmentSnapshot, Leaderboard, ...)
       Events/                  ← EventBus + payload records + attribute(s).
                                   SpellboundEventArgs exposes Subject (the player this is
                                   about) and AccountId — payloads override Subject so handlers
@@ -85,19 +96,21 @@ Content/
 Database/
   ...                   ← upstream DB schema files (don't touch)
   Spellbound/           ← OUR SQL artifacts
-    Baseline/CreateSpellboundDb.sql          ← fresh-DB bootstrap. Equivalent to
-                                              "blank DB + every Updates/*.sql in order."
+    Baseline/CreateSpellboundDb.sql          ← DESTRUCTIVE wipe-and-reload of the
+                                              Spellbound schema. Drops every table
+                                              then recreates it. Safe on any state.
+                                              Equivalent to "blank DB + every
+                                              Updates/*.sql in order."
     Updates/<YYYY-MM-DD-NNN>-<slug>.sql      ← dated, hand-authored migrations.
                                               Apply manually after entity / schema changes.
     Seeds/{achievements,zones}.sql           ← canonical INSERT IGNORE seed rows; stable Ids
                                               referenced by code-driven evaluators.
     Operations/season-wipe.sql               ← manual season-wipe procedure;
                                               run with the server stopped.
-    Operations/reset-spellbound-db.sql       ← DESTRUCTIVE drop-all + create-all
-                                              + reseed of every Spellbound
-                                              table. Dev convenience. Mirror
-                                              of Baseline + Seeds with DROPs
-                                              prepended.
+    Operations/reset-spellbound-db.sql       ← DESTRUCTIVE Baseline + Seeds.
+                                              Same drop-and-recreate as Baseline,
+                                              plus the canonical INSERT-IGNORE
+                                              seed data. Dev convenience.
 ```
 
 `Settings.json` contains local secrets (MySQL creds). It's tracked in git but should be `assume-unchanged`-ed locally — see `Source/ACE.Mods.Spellbound/README_Spellbound.md` for the git command.
@@ -148,11 +161,11 @@ Four databases are involved:
 
 No EF Core migrations. Schema lives in three places under `Database/Spellbound/`:
 
-- **`Baseline/CreateSpellboundDb.sql`** — full schema for a fresh DB. Equivalent to "blank DB + every `Updates/*.sql` applied in chronological order." Run once on bootstrap.
+- **`Baseline/CreateSpellboundDb.sql`** — DESTRUCTIVE wipe-and-reload of the full Spellbound schema. Self-contained drop-and-recreate — safe to run on any state of `ace_mod_spellbound` (empty or populated). Equivalent to "blank DB + every `Updates/*.sql` applied in chronological order," minus the seeds.
 - **`Updates/<YYYY-MM-DD-NNN>-<slug>.sql`** — dated, hand-written deltas for changes since the baseline. Applied manually against `ace_mod_spellbound`.
-- **`Operations/reset-spellbound-db.sql`** — DESTRUCTIVE single-file drop + create + seed. Concatenation of Baseline + Seeds with `DROP TABLE` statements prepended. Dev-box convenience for nuking and reloading the schema in one shot.
+- **`Operations/reset-spellbound-db.sql`** — DESTRUCTIVE Baseline + Seeds. Same drop-and-recreate as Baseline, plus the canonical `INSERT IGNORE` seed data. Dev-box convenience for nuking and reloading schema + seeds in one shot.
 
-**Maintenance rule:** when you change an entity or `OnModelCreating`, you write THREE things in the same commit: (a) a new `Updates/*.sql` so existing deployments can upgrade, (b) the matching delta in `Baseline/CreateSpellboundDb.sql` so a fresh-box bootstrap stays equivalent to "blank + all updates," and (c) the matching delta in `Operations/reset-spellbound-db.sql` (and add a `DROP TABLE IF EXISTS` if you introduced a new table) so the dev-reset script stays equivalent to Baseline + Seeds. Don't rely on `EnsureCreated`. Same rule applies to changes in `Seeds/*.sql` — mirror them into `reset-spellbound-db.sql`.
+**Maintenance rule:** when you change an entity or `OnModelCreating`, you write THREE things in the same commit: (a) a new `Updates/*.sql` so existing deployments can upgrade, (b) the matching delta in `Baseline/CreateSpellboundDb.sql` (and a new `DROP TABLE IF EXISTS` line in its drop block if you introduced a new table) so the wipe-and-reload stays equivalent to "blank + all updates," and (c) the matching delta in `Operations/reset-spellbound-db.sql` (same `DROP TABLE IF EXISTS` rule for new tables) so the dev-reset script stays equivalent to Baseline + Seeds. Don't rely on `EnsureCreated`. Same rule applies to changes in `Seeds/*.sql` — mirror them into `reset-spellbound-db.sql`.
 
 `Database/Spellbound/Seeds/` carries canonical INSERT-IGNORE rows for achievements + zones. Seed Ids are stable; code-driven `[CustomAchievement]` evaluators reference them by Id (e.g. `FirstCriticalKill` → 9001). `Database/Spellbound/Operations/season-wipe.sql` is the manual between-season procedure.
 
@@ -168,15 +181,15 @@ The achievement system grants permanent account-level bonuses, so anti-cheat and
 - **Apply bonuses to all characters on the account, including future ones.** When an achievement is granted, walk every existing character on the account and apply; on character create, walk all granted achievements and apply. Both paths must converge to the same end state.
 - **Watch for duplicate-trigger pitfalls.** A single in-game event (e.g., a mob death) can fire multiple Harmony patches if registered carelessly. Register each trigger exactly once and reason about whether the event hook is called per-attacker, per-tick, or per-damage-instance.
 - **Account-scope, not character-scope.** Always look up `Player.Account.AccountId` (or equivalent) — never `Player.Guid`. A character-scoped award would re-grant bonuses every time the player rerolls.
-- **Per-character bonus application is idempotent via `AwardedCharacterAchievements`.** The unique `(CharacterId, AchievementId)` index gates application: both the on-grant walk and the on-character-create walk attempt an `INSERT IGNORE` and treat duplicate-key as "already applied; no-op." Don't bypass `AchievementService.ApplyToCharacter` — it's the only sanctioned write path for the bonus side, mirroring how `TryAwardAtomic` is the only one for the award side.
+- **Per-character bonus application is idempotent via `CharacterAchievements`.** The unique `(CharacterId, AchievementId)` index gates application: both the on-grant walk and the on-character-create walk attempt an `INSERT IGNORE` and treat duplicate-key as "already applied; no-op." Don't bypass `AchievementService.ApplyToCharacter` — it's the only sanctioned write path for the bonus side, mirroring how `TryAwardAtomic` is the only one for the award side.
 - **Stat-style awards mutate the character's BASE stat** (`PropertyAttribute.InitLevel` / `PropertyAttribute2nd.InitLevel` / `PropertiesSkill.InitLevel`) so players can still raise the stat the normal number of times after the bonus lands. Multiplier-style awards (XP / Lum bonus, damage modifiers, ArmorLevel, AllResists) are deferred — they need runtime calc-path hooks, not one-shot mutations. `ApplyToCharacter` currently logs and skips them.
 
 If you're about to write achievement-award code, re-read this section first.
 
 ## Seasons & zone stages
 
-- Characters wipe between seasons; accounts, `AccountAchievement` rows, `Achievement` catalog, `WorldStateRule` defs, `Zone` rows, and `ReservedName` rows persist. `AwardedCharacterAchievements` rows are wiped (they reference now-deleted character GUIDs); `Zone.Stage` is reset to 0. Any new account-tied data we add must survive a character wipe — design schema with that in mind.
-- The wipe procedure is `Database/Spellbound/Operations/season-wipe.sql` — manual SQL run with the server stopped. Step 1 snapshots every active character's `(name, account_Id)` into `ReservedNames` (INSERT IGNORE — first reservation wins, prior-season rows untouched); step 2 truncates every `character` / `biota` / `*_properties_*` shard table; step 3 resets `Zones.Stage = 0`. Smoke-check `SELECT`s at the bottom of the script confirm survivors are intact. The `ReservedNames` snapshot is enforced at character creation by `EventHandlers/SeasonLifecycleRules/CharacterCreateReservedNameHandler.cs`; reservations are permanent (no expiry), and the `is_Deleted = 0` filter on the snapshot intentionally excludes characters the player already deleted.
+- Characters wipe between seasons; accounts, `AccountAchievement` rows, `Achievement` catalog, `WorldStateRule` defs, `Zone` rows, and `ReservedName` rows persist. `CharacterAchievements` rows are wiped (they reference now-deleted character GUIDs); per-character snapshot rows (`OnlinePlayers`, `CharacterProfileSnapshots`, `CharacterEquipmentSnapshots`) and `Leaderboards` are also truncated. `Zone.Stage` is reset to 0. Any new account-tied data we add must survive a character wipe — design schema with that in mind.
+- The wipe procedure is `Database/Spellbound/Operations/season-wipe.sql` — manual SQL run with the server stopped. Step 1 snapshots every active character's `(name, account_Id)` into `ReservedNames` (INSERT IGNORE — first reservation wins, prior-season rows untouched); step 2 truncates every `character` / `biota` / `*_properties_*` shard table; step 3 resets `Zones.Stage = 0` and truncates the per-character snapshot + leaderboard tables. Smoke-check `SELECT`s at the bottom of the script confirm survivors are intact. The `ReservedNames` snapshot is enforced at character creation by `EventHandlers/AccountRules/PlayerOnCreateReservedNameHandler.cs`; reservations are permanent (no expiry), and the `is_Deleted = 0` filter on the snapshot intentionally excludes characters the player already deleted.
 - Zone staging works by importing a SQL file (`Content/zone-stages/<zone>/<stage>.sql`) that rewrites `landblock_instance` rows for that zone's landblock, then reloading the landblock. The flow lives in `Services/WorldStateService.cs`; `CommandHandlers/AdminCommands/ZoneCommandHandler.cs` (admin, `/zone stage <n>` force-set) and the per-trigger event handlers (event-driven, advance-only) both funnel into it. The SQL import runs in an explicit world-DB transaction (`TryImportStageSql`) so a typo mid-batch rolls back instead of leaving `landblock_instance` half-rewritten. `Zone` rows whose `Stage` stays at 0 with no `Content/zone-stages/<Name>/` directory are pure aliases — used for /who labels and `LandblockNaming.Resolve` only.
 - Automatic triggering is wired via `WorldStateRule` rows: `(EventTrigger, FilterType, Target) → (ZoneId, TargetStage)`. Same `FilterType` / `Target` shape as `Achievement`, so `Services/RuleMatcher.cs` evaluates both.
 - Players in the affected landblock get a system-chat broadcast right before the destroy/reload — see `WorldStateService.DispatchLandblockReload`. Same method has an inline audit comment of exactly what `DestroyAllNonPlayerObjects` removes (corpses + dropped items unload but biota survives; pets / projectiles / non-shard NPCs destroyed; static spawns reload from the just-imported SQL).
@@ -215,7 +228,9 @@ Default sequence:
 4. Write the work in the right home:
    - Cross-cutting helpers (atomic award, zone stage advance, filter matching) → `Services/`
    - Gameplay-mutating rule for an existing trigger → new file under `EventHandlers/GameplayRules/`
-   - Code-driven achievement → new file under `EventHandlers/CustomAchievementRules/` with `[CustomAchievement]`
+   - Code-driven achievement → new file under `EventHandlers/AchievementRules/CustomAchievementRules/` with `[CustomAchievement]`. The attribute's `achievementId` MUST match the seed row's `Id` in `Database/Spellbound/Seeds/achievements.sql` — `CustomAchievementRegistry` looks up the row by that id.
+   - Snapshot writer for the Asheron's Eye web app → `EventHandlers/SnapshotRules/` (lifecycle hook) + extension method on `Services/SnapshotService.cs` (build/write).
+   - Leaderboard counter for an existing trigger → new file under `EventHandlers/LeaderboardRules/` (a second `[SpellboundEvent]` subscriber alongside the achievement dispatcher) + extension on `Services/LeaderboardService.cs`.
 5. If DB schema changes: update the entity, update `OnModelCreating`, **write BOTH a new `Database/Spellbound/Updates/<YYYY-MM-DD-NNN>-<slug>.sql` for live deployments AND mirror the change into `Database/Spellbound/Baseline/CreateSpellboundDb.sql` in the same commit.** Call out the migration to the user.
 6. If touching achievements: re-read the "Achievements: rules to enforce" section before writing.
 7. If touching anything that runs off the main loop: re-read "Thread safety".
@@ -234,8 +249,13 @@ Per-trigger handlers (canonical templates):
 - `EventHandlers/AchievementRules/PlayerOnLevelHandler.cs` — prefix+postfix `__state` pattern, per-iteration event firing
 - `EventHandlers/AchievementRules/PlayerOnDeathHandler.cs` — postfix-only publisher with PvP/PvE branching
 - `EventHandlers/AchievementRules/PlayerPreCastHandler.cs` paired with `EventHandlers/GameplayRules/BlockNonItemEnchantmentSpells.cs` — mutable-payload + separate gameplay rule subscriber
-- `EventHandlers/CustomAchievementRules/FirstCriticalKill.cs` — `[CustomAchievement]` evaluator template
-- `EventHandlers/AchievementRules/NewCharacterApplyHandler.cs` — lifecycle-only Harmony patch (no EventBus); the on-character-create achievement re-walk
+- `EventHandlers/AchievementRules/CustomAchievementRules/FirstCriticalKill.cs` — `[CustomAchievement]` evaluator template
+- `EventHandlers/AchievementRules/PlayerOnCharacterCreatedHandler.cs` — lifecycle-only Harmony patch (no EventBus); the on-character-create achievement re-walk
+- `EventHandlers/AchievementRules/PlayerOnEnterWorldHandler.cs` — login safety net for missed bonus applications
+- `EventHandlers/AccountRules/PlayerOnCreateReservedNameHandler.cs` — Harmony prefix on `CharacterHandler.CharacterCreateEx` enforcing `ReservedNames`
+- `EventHandlers/SnapshotRules/PlayerLogoutSnapshotHandler.cs` — capture-on-patch-thread + `RunDbWork` snapshot pattern
+- `EventHandlers/SnapshotRules/SnapshotTimers.cs` — periodic snapshot timer template (`OnStartSuccess` + `Interlocked` start latch)
+- `EventHandlers/LeaderboardRules/PlayerOnKillLeaderboardHandler.cs` — second `[SpellboundEvent]` subscriber + UPSERT counter
 
 Services:
 
@@ -245,6 +265,8 @@ Services:
 - `Services/RuleMatcher.cs` — payload-aware (FilterType, Target) match; add a switch arm + helper for new payloads
 - `Services/SpellboundDispatcher.cs` — standard three-step pipeline shared across all trigger handlers
 - `Services/CustomAchievementRegistry.cs` — `[CustomAchievement]` discovery + dispatch
+- `Services/SnapshotService.cs` — sole writer for `OnlinePlayers` / `CharacterProfileSnapshots` / `CharacterEquipmentSnapshots`; defines the JSON DTOs the web app deserializes
+- `Services/LeaderboardService.cs` — `INSERT ... ON DUPLICATE KEY UPDATE` UPSERT primitive for the `Leaderboards` counter table
 
 Events:
 

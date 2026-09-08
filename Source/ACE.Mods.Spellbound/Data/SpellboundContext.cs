@@ -18,6 +18,10 @@ namespace ACE.Mods.Spellbound.Data
         public DbSet<AccountVerification> AccountVerifications { get; set; }
         public DbSet<WorldStateRule> WorldStateRules { get; set; }
         public DbSet<ReservedName> ReservedNames { get; set; }
+        public DbSet<OnlinePlayer> OnlinePlayers { get; set; }
+        public DbSet<CharacterProfileSnapshot> CharacterProfileSnapshots { get; set; }
+        public DbSet<CharacterEquipmentSnapshot> CharacterEquipmentSnapshots { get; set; }
+        public DbSet<Leaderboard> Leaderboards { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -80,6 +84,38 @@ namespace ACE.Mods.Spellbound.Data
                 // case-insensitive matching, mirroring how shard.character.name behaves.
                 b.HasIndex(x => x.Name).IsUnique();
                 b.HasIndex(x => x.AccountId);
+            });
+
+            modelBuilder.Entity<OnlinePlayer>(b =>
+            {
+                b.HasKey(x => x.CharacterId);
+                b.HasIndex(x => x.SeenAt);
+                b.HasIndex(x => x.AccountId);
+            });
+
+            modelBuilder.Entity<CharacterProfileSnapshot>(b =>
+            {
+                b.HasKey(x => x.CharacterId);
+                b.HasIndex(x => x.AccountId);
+                b.HasIndex(x => x.CharacterName);
+            });
+
+            modelBuilder.Entity<CharacterEquipmentSnapshot>(b =>
+            {
+                b.HasKey(x => x.CharacterId);
+                b.HasIndex(x => x.AccountId);
+                b.HasIndex(x => x.CharacterName);
+            });
+
+            modelBuilder.Entity<Leaderboard>(b =>
+            {
+                b.HasKey(x => x.Id);
+                // Unique on (Category, Target, CharacterId) is the upsert key
+                // for INSERT ... ON DUPLICATE KEY UPDATE.
+                b.HasIndex(x => new { x.Category, x.Target, x.CharacterId }).IsUnique();
+                // Range-scan support for "top N in category" queries.
+                b.HasIndex(x => new { x.Category, x.Target, x.Count });
+                b.Property(x => x.Target).HasMaxLength(100).IsRequired().HasDefaultValue("");
             });
 
             base.OnModelCreating(modelBuilder);

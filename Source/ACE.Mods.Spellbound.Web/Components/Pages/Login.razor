@@ -1,0 +1,78 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout EmptyLayout
+@inject LoginService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Sign in — Asheron's Eye</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="mt-16">
+    <MudPaper Class="pa-8" Elevation="3">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-1">Asheron's Eye</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Tertiary" Class="mb-6">Sign in with your game account.</MudText>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">@error</MudAlert>
+        }
+
+        <EditForm Model="FormModel" method="post" OnValidSubmit="Submit" FormName="login" Enhance="false">
+            <div class="login-field">
+                <label for="account-name">Account name</label>
+                <input id="account-name" type="text" name="Input.AccountName" value="@(Input?.AccountName)"
+                       autocomplete="username" autofocus required />
+            </div>
+
+            <div class="login-field">
+                <label for="password">Password</label>
+                <input id="password" type="password" name="Input.Password"
+                       autocomplete="current-password" required />
+            </div>
+
+            <button type="submit" class="login-button">Sign in</button>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromForm] private LoginInput? Input { get; set; }
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+
+    private string? error;
+
+    // EditForm needs a non-null Model; Input is null on first GET.
+    private LoginInput FormModel => Input ?? new();
+
+    private async Task Submit()
+    {
+        if (HttpContext is null)
+        {
+            error = "Internal error: no HTTP context.";
+            return;
+        }
+
+        var input = Input ?? new();
+        var result = await Auth.SignInAsync(HttpContext, input.AccountName, input.Password);
+        if (result.Success)
+        {
+            Nav.NavigateTo(SafeReturnUrl(), forceLoad: true);
+            return;
+        }
+
+        error = result.Error;
+    }
+
+    private string SafeReturnUrl()
+    {
+        if (string.IsNullOrEmpty(ReturnUrl)) return "/";
+        if (!Uri.TryCreate(ReturnUrl, UriKind.Relative, out _)) return "/";
+        return ReturnUrl.StartsWith('/') ? ReturnUrl : "/";
+    }
+
+    public sealed class LoginInput
+    {
+        public string AccountName { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

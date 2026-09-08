@@ -8,7 +8,7 @@ namespace ACE.Mods.Spellbound.EventHandlers.AchievementRules
     /// <summary>
     /// Login-time safety net for missed bonus applications. For every
     /// AccountAchievement granted to this player's account that has no
-    /// matching AwardedCharacterAchievements row for this character, re-run
+    /// matching CharacterAchievements row for this character, re-run
     /// ApplyToCharacter so the bonus lands.
     ///
     /// Why this exists: ApplyToCharacter is two steps — INSERT IGNORE the

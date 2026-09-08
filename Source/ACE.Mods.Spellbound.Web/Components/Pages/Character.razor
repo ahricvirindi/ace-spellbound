@@ -1,0 +1,368 @@
+@page "/character/{Name}"
+@attribute [Authorize]
+@inject CharacterProfileService Profile
+@inject NavigationManager Nav
+
+<PageTitle>@(profile?.Name ?? Name) — Asheron's Eye</PageTitle>
+
+@if (profile is null)
+{
+    <MudAlert Severity="Severity.Warning">Character "@Name" not found.</MudAlert>
+}
+else
+{
+    <MudText Typo="Typo.h3" Class="mb-1">@profile.Name</MudText>
+    <MudText Typo="Typo.subtitle1" Color="Color.Tertiary" Class="mb-6">
+        @if (profile.HasSnapshot)
+        {
+            <span>Level @profile.Level · last seen @profile.SnapshottedAt:u</span>
+        }
+        else
+        {
+            <span>Profile not yet captured</span>
+        }
+    </MudText>
+
+    @if (!profile.HasSnapshot)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-6">
+            No snapshot data for this character yet. Snapshots are written on logout
+            or every 30 minutes for online characters — log in once and the profile
+            will appear shortly after.
+        </MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Attributes</MudText>
+                    <Stat Label="Strength"     Value="@profile.Strength"     Icon="@Icons.Material.Filled.FitnessCenter" />
+                    <Stat Label="Endurance"    Value="@profile.Endurance"    Icon="@Icons.Material.Filled.Shield" />
+                    <Stat Label="Coordination" Value="@profile.Coordination" Icon="@Icons.Material.Filled.CenterFocusStrong" />
+                    <Stat Label="Quickness"    Value="@profile.Quickness"    Icon="@Icons.Material.Filled.Speed" />
+                    <Stat Label="Focus"        Value="@profile.Focus"        Icon="@Icons.Material.Filled.Visibility" />
+                    <Stat Label="Self"         Value="@profile.Self"         Icon="@Icons.Material.Filled.Psychology" />
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Vitals</MudText>
+                    <Stat Label="Health"  Value="@profile.HealthMax"  Icon="@Icons.Material.Filled.Favorite"  IconStyle="color:#E53935;" />
+                    <Stat Label="Stamina" Value="@profile.StaminaMax" Icon="@Icons.Material.Filled.Bolt"      IconStyle="color:#FBC02D;" />
+                    <Stat Label="Mana"    Value="@profile.ManaMax"    Icon="@Icons.Material.Filled.WaterDrop" IconStyle="color:#1E88E5;" />
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Experience</MudText>
+                    <Stat Label="Total XP" Value="@profile.TotalXp.ToString("N0")"      Icon="@Icons.Material.Filled.AutoAwesome" IconStyle="color:#8E24AA;" />
+                    <Stat Label="Unspent"  Value="@profile.UnassignedXp.ToString("N0")" Icon="@Icons.Material.Filled.Stars"       IconStyle="color:#FFB300;" />
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Equipped</MudText>
+                    @if (profile.Equipment.Count == 0)
+                    {
+                        <MudText Color="Color.Tertiary">No equipped items recorded.</MudText>
+                    }
+                    else
+                    {
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" md="5">
+                                @* Doll: vertical list of equipped slots in body-priority order. *@
+                                <div class="doll">
+                                    @foreach (var item in profile.Equipment.OrderBy(i => SlotPriority(i.Slot)).ThenBy(i => i.Slot))
+                                    {
+                                        var isSelected = string.Equals(item.Slot, Slot, StringComparison.Ordinal);
+                                        <a class="@(isSelected ? "doll-slot doll-slot-selected" : "doll-slot")"
+                                           href="@SlotHref(item.Slot)">
+                                            @if (item.IconId != 0)
+                                            {
+                                                <img src="@ItemIconUrl(item.IconId)"
+                                                     onerror="this.style.visibility='hidden'"
+                                                     alt="" />
+                                            }
+                                            else
+                                            {
+                                                <div class="doll-slot-icon-placeholder"></div>
+                                            }
+                                            <div class="doll-slot-text">
+                                                <div class="doll-slot-label">@FormatSlot(item.Slot)</div>
+                                                <div class="doll-slot-name">@item.Name</div>
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            </MudItem>
+                            <MudItem xs="12" md="7">
+                                @* Detail panel: full info for the currently-selected slot. *@
+                                @{
+                                    var selectedItem = string.IsNullOrEmpty(Slot)
+                                        ? null
+                                        : profile.Equipment.FirstOrDefault(i => i.Slot == Slot);
+                                }
+                                @if (selectedItem is null)
+                                {
+                                    <MudPaper Class="pa-6" Elevation="0" Outlined="true" Style="text-align:center;">
+                                        <MudIcon Icon="@Icons.Material.Filled.TouchApp" Size="Size.Large" Color="Color.Tertiary" Class="mb-2" />
+                                        <MudText Color="Color.Tertiary">
+                                            Click an equipped slot on the left to see item details.
+                                        </MudText>
+                                    </MudPaper>
+                                }
+                                else
+                                {
+                                    <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+                                        <div style="display:flex; gap:0.75rem; align-items:flex-start; margin-bottom: 1rem;">
+                                            @if (selectedItem.IconId != 0)
+                                            {
+                                                <img src="@ItemIconUrl(selectedItem.IconId)"
+                                                     onerror="this.style.visibility='hidden'"
+                                                     style="width:48px;height:48px;flex-shrink:0;"
+                                                     alt="" />
+                                            }
+                                            <div>
+                                                <MudText Typo="Typo.h6">@selectedItem.Name</MudText>
+                                                <MudText Typo="Typo.body2" Color="Color.Tertiary">@FormatSlot(selectedItem.Slot)</MudText>
+                                            </div>
+                                        </div>
+
+                                        <MudDivider Class="mb-3" />
+
+                                        <div class="item-detail-stats">
+                                            @if (selectedItem.Workmanship.HasValue) { <Stat Label="Workmanship" Value="@selectedItem.Workmanship" /> }
+                                            @if (selectedItem.Damage.HasValue)      { <Stat Label="Damage"      Value="@selectedItem.Damage" /> }
+                                            @if (selectedItem.ArmorLevel.HasValue)  { <Stat Label="Armor Level" Value="@selectedItem.ArmorLevel" /> }
+                                            @if (selectedItem.Spellcraft.HasValue)  { <Stat Label="Spellcraft"  Value="@selectedItem.Spellcraft" /> }
+                                            @if (selectedItem.MaxMana.HasValue)     { <Stat Label="Max Mana"    Value="@selectedItem.MaxMana" /> }
+                                            @if (selectedItem.Value.HasValue)       { <Stat Label="Value"       Value="@selectedItem.Value.Value.ToString("N0")" /> }
+                                        </div>
+
+                                        @if (selectedItem.Requirements.Count > 0)
+                                        {
+                                            <MudDivider Class="my-3" />
+                                            <MudText Typo="Typo.subtitle2" Class="mb-2">Requirements</MudText>
+                                            <ul class="item-detail-list">
+                                                @foreach (var r in selectedItem.Requirements)
+                                                {
+                                                    <li>@r</li>
+                                                }
+                                            </ul>
+                                        }
+
+                                        @if (selectedItem.Spells.Count > 0)
+                                        {
+                                            <MudDivider Class="my-3" />
+                                            <MudText Typo="Typo.subtitle2" Class="mb-2">Spells</MudText>
+                                            <div class="item-detail-spells">
+                                                @foreach (var s in selectedItem.Spells)
+                                                {
+                                                    <div class="item-detail-spell">
+                                                        <img src="@SpellIconUrl(s)"
+                                                             onerror="this.style.visibility='hidden'"
+                                                             alt="" />
+                                                        <span>@s</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </MudPaper>
+                                }
+                            </MudItem>
+                        </MudGrid>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudPaper Class="pa-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-3">Skills</MudText>
+                    @if (profile.Skills.Count == 0)
+                    {
+                        <MudText Color="Color.Tertiary">No trained skills yet.</MudText>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Dense="true" Hover="true">
+                            <thead>
+                                <tr>
+                                    <th>Skill</th>
+                                    <th>State</th>
+                                    <th style="text-align:right">Base</th>
+                                    <th style="text-align:right">Current</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @* Specialized first, then within each tier sort by Current desc.
+                                   "Specialized" sorts before "Trained" alphabetically too, but key
+                                   off State explicitly so future enum values don't disturb it. *@
+                                @foreach (var s in profile.Skills
+                                    .OrderBy(x => x.State == "Specialized" ? 0 : 1)
+                                    .ThenByDescending(x => x.Current)
+                                    .ThenBy(x => x.Skill))
+                                {
+                                    <tr>
+                                        <td style="white-space:nowrap;">
+                                            <img src="@SkillIconUrl(s.Skill)"
+                                                 onerror="this.style.visibility='hidden'"
+                                                 style="width:24px;height:24px;vertical-align:middle;margin-right:0.5rem;"
+                                                 alt="" />
+                                            @FormatSlot(s.Skill)
+                                        </td>
+                                        <td>
+                                            @if (s.State == "Specialized")
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary">Specialized</MudChip>
+                                            }
+                                            else
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Default">@s.State</MudChip>
+                                            }
+                                        </td>
+                                        <td style="text-align:right">@s.Base</td>
+                                        <td style="text-align:right">@s.Current</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+
+    <MudPaper Class="pa-4 mt-6" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-3">Achievements</MudText>
+        @if (profile.Badges.Count == 0)
+        {
+            <MudText Color="Color.Tertiary">
+                No achievements unlocked on this account yet.
+            </MudText>
+        }
+        else
+        {
+            <MudGrid>
+                @foreach (var b in profile.Badges)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Class="pa-3" Elevation="0" Outlined="true">
+                            <MudText Typo="Typo.subtitle1">@b.Name</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Tertiary">@b.Description</MudText>
+                            <MudText Typo="Typo.caption" Class="mt-1">Awarded @b.AwardedAt:u</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public string Name { get; set; } = "";
+    [SupplyParameterFromQuery] public string? Slot { get; set; }
+    private CharacterProfileViewModel? profile;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Name)) { profile = null; return; }
+        profile = await Profile.GetByNameAsync(Name);
+    }
+
+    private string SlotHref(string slot) =>
+        $"/character/{Uri.EscapeDataString(profile?.Name ?? Name)}?slot={Uri.EscapeDataString(slot)}";
+
+    // Convert "ChestArmor" → "Chest Armor", "MeleeDefense" → "Melee Defense", etc.
+    // Used for both EquipMask slots and Skill enum names — both are PascalCase
+    // shorthand on the wire and want readable spaces in the UI. Imperfect but
+    // cheap; "ItemEnchantment" comes out fine, "PVPDamageBonus" would over-split
+    // (we don't have any such enum in play).
+    private static string FormatSlot(string slot)
+    {
+        if (string.IsNullOrEmpty(slot)) return slot;
+        var withSpaces = System.Text.RegularExpressions.Regex.Replace(slot, "(?<!^)([A-Z])", " $1");
+        return withSpaces;
+    }
+
+    // Body-position priority for the doll. Lower = closer to the head;
+    // weapons land at the bottom. Slots not in this map sort to the end via
+    // the int-max fallback. Adjust if a new slot earns a specific spot.
+    private static int SlotPriority(string slot) => slot switch
+    {
+        "HeadWear"        => 1,
+        "NeckWear"        => 2,
+        "ChestArmor"      => 3,
+        "Cloak"           => 4,
+        "AbdomenArmor"    => 5,
+        "UpperArmArmor"   => 6,
+        "LowerArmArmor"   => 7,
+        "WristWearLeft"   => 8,
+        "WristWearRight"  => 9,
+        "HandWear"        => 10,
+        "FingerWearLeft"  => 11,
+        "FingerWearRight" => 12,
+        "TrinketOne"      => 13,
+        "UpperLegArmor"   => 14,
+        "LowerLegArmor"   => 15,
+        "FootWear"        => 16,
+        "MeleeWeapon"     => 20,
+        "MissileWeapon"   => 21,
+        "Held"            => 22,
+        "Shield"          => 23,
+        "TwoHanded"       => 24,
+        _                 => 99
+    };
+
+    // Skill enum name → static-asset path. Mirrors the dat extractor's slug
+    // rule: humanize PascalCase to spaced words, lowercase, then collapse
+    // non-alphanumerics to '_'. e.g. "MeleeDefense" → "melee_defense.png".
+    // Hidden via onerror in markup if the file isn't bundled (e.g. retired
+    // skills like Sword that don't appear in the dat's SkillTable).
+    private static string SkillIconUrl(string skillEnumName)
+    {
+        if (string.IsNullOrEmpty(skillEnumName)) return "";
+        var withSpaces = System.Text.RegularExpressions.Regex.Replace(skillEnumName, "(?<!^)([A-Z])", " $1");
+        return $"img/ac/skills/{Slugify(withSpaces)}.png";
+    }
+
+    // Spell display name → static-asset path. The dat extractor used the
+    // dat-supplied display name ("Strength Self VI", "Olthoi's Hide V") as
+    // the slug source; the mod's SnapshotService captures the same display
+    // name into EquippedItemEntry.Spells. So we just slugify the name and
+    // hope it lines up. Edge case: when the extractor saw two spells share
+    // a slug it suffixed the second with "_2" — we'll resolve to the first
+    // (no suffix) which is wrong only for the second spell of a colliding
+    // pair. Acceptable for tooltip decoration. Also: unknown spell ids in
+    // the snapshot serialize as "spell:N" — those onerror-hide quietly.
+    private static string SpellIconUrl(string spellName)
+    {
+        if (string.IsNullOrEmpty(spellName)) return "";
+        return $"img/ac/spells/{Slugify(spellName)}.png";
+    }
+
+    private static string Slugify(string source)
+    {
+        var sb = new System.Text.StringBuilder(source.Length);
+        foreach (var ch in source.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(ch)) sb.Append(ch);
+            else if (sb.Length > 0 && sb[^1] != '_') sb.Append('_');
+        }
+        while (sb.Length > 0 && sb[^1] == '_') sb.Length--;
+        return sb.ToString();
+    }
+
+    // IconId → path served by the /img/ac/items static-files mount in
+    // Program.cs. The dat extractor names files by zero-padded uppercase hex
+    // (Texture.ExportTexture: Id.ToString("X8") + ".png"). IconId 0 means
+    // "no icon" — short-circuit so we don't generate broken URLs.
+    private static string ItemIconUrl(uint iconId)
+    {
+        if (iconId == 0) return "";
+        return $"/img/ac/items/{iconId:X8}.png";
+    }
+}

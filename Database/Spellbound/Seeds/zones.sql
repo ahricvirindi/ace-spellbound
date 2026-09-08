@@ -21,4 +21,4 @@
 INSERT IGNORE INTO `Zones`
     (`Id`, `Name`, `Landblock`, `Stage`, `UpdatedAt`, `Version`)
 VALUES
-    (1, 'Holtburg', '00000000', 0, UTC_TIMESTAMP(6), 0);
+    (1, 'Holtburg', '0xA9B4FFFF', 0, UTC_TIMESTAMP(6), 0);

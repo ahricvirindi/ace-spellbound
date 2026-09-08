@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudIcon Icon="@Icons.Material.Filled.RemoveRedEye" Class="ml-2 mr-2" />
+        <MudText Typo="Typo.h5">Asheron's Eye</MudText>
+        <AuthorizeView>
+            <Authorized>
+                <MudButton Href="/" Variant="Variant.Text" Color="Color.Inherit" Class="ml-6">Home</MudButton>
+                <MudButton Href="/who" Variant="Variant.Text" Color="Color.Inherit">Who</MudButton>
+                <MudButton Href="/characters" Variant="Variant.Text" Color="Color.Inherit">Characters</MudButton>
+                <MudButton Href="/leaderboards" Variant="Variant.Text" Color="Color.Inherit">Leaderboards</MudButton>
+            </Authorized>
+        </AuthorizeView>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudText Typo="Typo.body2" Class="mr-4">@context.User.Identity?.Name</MudText>
+                <form method="post" action="/auth/logout" class="logout-form">
+                    <AntiforgeryToken />
+                    <button type="submit" class="logout-button">Sign out</button>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6 mb-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

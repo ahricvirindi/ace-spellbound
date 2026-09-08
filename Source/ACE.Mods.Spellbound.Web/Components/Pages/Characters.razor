@@ -1,0 +1,73 @@
+@page "/characters"
+@attribute [Authorize]
+@inject CharacterLookupService Lookup
+
+<PageTitle>Find a character — Asheron's Eye</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Find a character</MudText>
+
+<EditForm Model="FormModel" method="post" OnValidSubmit="DoSearch" FormName="char-search" Enhance="false">
+    <div class="search-row">
+        <input type="text"
+               name="Input.Query"
+               value="@(Input?.Query)"
+               placeholder="Name fragment (min 2 chars)..."
+               class="search-input"
+               autocomplete="off"
+               autofocus />
+        <button type="submit" class="login-button" style="width: auto; min-width: 8rem;">Search</button>
+    </div>
+</EditForm>
+
+@if (results is null)
+{
+    <MudText Typo="Typo.body2" Color="Color.Tertiary" Class="mt-4">
+        Type at least two characters and press Search.
+    </MudText>
+}
+else if (results.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">No characters match "@(Input?.Query)".</MudAlert>
+}
+else
+{
+    <MudPaper Class="mt-4">
+        <MudSimpleTable Dense="true" Hover="true" Striped="true">
+            <thead><tr><th>Name</th></tr></thead>
+            <tbody>
+                @foreach (var r in results)
+                {
+                    <tr>
+                        <td><MudLink Href="@($"/character/{Uri.EscapeDataString(r.Name)}")">@r.Name</MudLink></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+    <MudText Typo="Typo.caption" Color="Color.Tertiary" Class="mt-2">
+        @results.Count match@(results.Count == 1 ? "" : "es")@(results.Count >= 50 ? " · refine for fewer results" : "").
+    </MudText>
+}
+
+@code {
+    [SupplyParameterFromForm] private SearchInput? Input { get; set; }
+    private SearchInput FormModel => Input ?? new();
+
+    private IReadOnlyList<CharacterSearchResult>? results;
+
+    private async Task DoSearch()
+    {
+        var q = Input?.Query ?? "";
+        if (q.Trim().Length < 2)
+        {
+            results = Array.Empty<CharacterSearchResult>();
+            return;
+        }
+        results = await Lookup.SearchAsync(q);
+    }
+
+    public sealed class SearchInput
+    {
+        public string Query { get; set; } = "";
+    }
+}

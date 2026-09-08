@@ -1,0 +1,21 @@
+@* One row of label + value used by Character profile attribute / vitals / xp blocks.
+   Optional Icon shown to the left of the label; IconStyle tints it (Material
+   icons render in the current text color by default; pass an inline color
+   override for vitals etc.). *@
+<div class="d-flex justify-space-between align-center mb-1">
+    <div class="d-flex align-center" style="min-width:0;">
+        @if (!string.IsNullOrEmpty(Icon))
+        {
+            <MudIcon Icon="@Icon" Size="Size.Small" Style="@IconStyle" Class="mr-2" />
+        }
+        <MudText Typo="Typo.body2" Color="Color.Tertiary">@Label</MudText>
+    </div>
+    <MudText Typo="Typo.body1">@Value</MudText>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public object? Value { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public string? IconStyle { get; set; }
+}

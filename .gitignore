@@ -307,3 +307,4 @@ Mods/*
 
 # Spellbound dat extractor output (Phase 0 asset extraction is rerun on dat updates).
 /out/
+/Source/ACE.Mods.Spellbound.Web/wwwroot/img/ac
